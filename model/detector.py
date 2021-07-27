@@ -16,23 +16,42 @@ class KeypointDetector(nn.Module):
     - heads
     '''
 
-    def __init__(self, cfg):
+    # def __init__(self, cfg):
+    #     super(KeypointDetector, self).__init__()
+
+    #     self.backbone = build_backbone(cfg)
+    #     self.heads = bulid_head(cfg, self.backbone.out_channels)
+    #     self.test = cfg.DATASETS.TEST_SPLIT == 'test'
+
+    # def forward(self, images, targets=None):
+    #     if self.training and targets is None:
+    #         raise ValueError("In training mode, targets should be passed")
+        
+    #     images = to_image_list(images)
+    #     features = self.backbone(images.tensors)
+
+    #     if self.training:
+    #         loss_dict, log_loss_dict = self.heads(features, targets)
+    #         return loss_dict, log_loss_dict
+    #     else:
+    #         result, eval_utils, visualize_preds = self.heads(features, targets, test=self.test)
+    #         return result, eval_utils, visualize_preds
+
+    # Pyten-20210713-ForConvertingOnnx
+    def __init__(self, cfg, target):
         super(KeypointDetector, self).__init__()
 
         self.backbone = build_backbone(cfg)
         self.heads = bulid_head(cfg, self.backbone.out_channels)
         self.test = cfg.DATASETS.TEST_SPLIT == 'test'
+        
+        self.targets = target
 
     def forward(self, images, targets=None):
-        if self.training and targets is None:
-            raise ValueError("In training mode, targets should be passed")
         
-        images = to_image_list(images)
-        features = self.backbone(images.tensors)
 
-        if self.training:
-            loss_dict, log_loss_dict = self.heads(features, targets)
-            return loss_dict, log_loss_dict
-        else:
-            result, eval_utils, visualize_preds = self.heads(features, targets, test=self.test)
-            return result, eval_utils, visualize_preds
+        features = self.backbone(images)
+        # result = self.heads(features, self.targets,test=self.test)
+        # return result
+        out_cls, out_regs = self.heads(features, self.targets)
+        return out_cls, out_regs

@@ -14,15 +14,25 @@ class Detect_Head(nn.Module):
         self.loss_evaluator = make_loss_evaluator(cfg)
         self.post_processor = make_post_processor(cfg)
 
-    def forward(self, features, targets=None, test=False):
-        x = self.predictor(features, targets)
+    # def forward(self, features, targets=None, test=False):
+    #     x = self.predictor(features, targets)
 
-        if self.training:
-            loss_dict, log_loss_dict = self.loss_evaluator(x, targets)
-            return loss_dict, log_loss_dict
-        else:
-            result, eval_utils, visualize_preds = self.post_processor(x, targets, test=test, features=features)
-            return result, eval_utils, visualize_preds
+    #     if self.training:
+    #         loss_dict, log_loss_dict = self.loss_evaluator(x, targets)
+    #         return loss_dict, log_loss_dict
+    #     else:
+    #         result, eval_utils, visualize_preds = self.post_processor(x, targets, test=test, features=features)
+    #         return result, eval_utils, visualize_preds
+
+    # Pyten-20210713-ForConvertingOnnx
+    def forward(self, features, targets=None, test=False):
+        out_cls, out_regs = self.predictor(features, targets)
+        return out_cls, out_regs
+        # x = self.predictor(features, targets)
+        # result = self.post_processor(x, targets, test=test, features=features) #, _, _
+        # return result
+
+
 
 def bulid_head(cfg, in_channels):
     

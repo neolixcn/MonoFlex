@@ -69,6 +69,14 @@ You can also specify --vis when evaluation to visualize the predicted heatmap an
 
 **Note:** we observe an obvious variation of the performance for different runs and we are still investigating possible solutions to stablize the results, though it may inevitably due to the utilized uncertainties.
 
+## ConvertOnnx
+run the following command to convert onnx.
+```
+CUDA_VISIBLE_DEVICES=2 python tools/convert_onnx.py --config runs/monoflex.yaml --ckpt ./model_moderate_best_soft_noInabn.pth --export-name "monoflex_new.onnx"
+```
+Note that if "new-ckpt" parameter and "ckpt" parameter are both given, the ckpt will be converted to new state dict without InplaceABN opterator and save to "new-ckpt".
+And if you want to compare the results of model with "new-ckpt" and "ckpt", try change the code around line 109.
+
 ## Citation
 
 If you find our work useful in your research, please consider citing:

@@ -47,7 +47,7 @@ def get_extensions():
 
     ext_modules = [
         extension(
-            "_ext",
+            "deform_conv_cuda",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,

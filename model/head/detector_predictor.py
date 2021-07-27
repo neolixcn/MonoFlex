@@ -1,6 +1,4 @@
-import torch
-import pdb
-import numpy as np
+from typing import Optional
 import torch
 import pdb
 import numpy as np
@@ -12,9 +10,192 @@ from model import registry
 from model.layers.utils import sigmoid_hm
 from model.make_layers import group_norm, _fill_fc_weights
 from model.layers.utils import select_point_of_interest
-from model.backbone.DCNv2.dcn_v2 import DCNv2
+# from model.backbone.DCNv2.dcn_v2 import DCNv2
+from model.backbone.DCNv2.modules.deform_conv import ModulatedDeformConvPack as DCN
 
 from inplace_abn import InPlaceABN
+
+class ABN(nn.Module):
+    """Activated Batch Normalization
+
+    This gathers a BatchNorm and an activation function in a single module
+
+    Args:
+        num_features: Number of feature channels in the input and output
+        eps: Small constant to prevent numerical issues
+        momentum: Momentum factor applied to compute running statistics with
+            exponential moving average, or `None` to compute running statistics
+            with cumulative moving average
+        affine: If `True` apply learned scale and shift transformation after normalization
+        track_running_stats: a boolean value that when set to `True`, this
+            module tracks the running mean and variance, and when set to `False`,
+            this module does not track such statistics and uses batch statistics instead
+            in both training and eval modes if the running mean and variance are `None`
+        activation: Name of the activation functions, one of: `relu`, `leaky_relu`,
+            `elu` or `identity`
+        activation_param: Negative slope for the `leaky_relu` activation or `alpha`
+            parameter for the `elu` activation
+    """
+
+    _version = 2
+    __constants__ = [
+        "track_running_stats",
+        "momentum",
+        "eps",
+        "num_features",
+        "affine",
+        "activation",
+        "activation_param",
+    ]
+    num_features: int
+    eps: float
+    momentum: Optional[float]
+    affine: bool
+    track_running_stats: bool
+    activation: str
+    activation_param: float
+
+    def __init__(
+        self,
+        num_features: int,
+        eps: float = 1e-5,
+        momentum: Optional[float] = 0.1,
+        affine: bool = True,
+        track_running_stats: bool = True,
+        activation: str = "leaky_relu",
+        activation_param: float = 0.01,
+    ):
+        super(ABN, self).__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+        self.track_running_stats = track_running_stats
+        self.activation = activation
+        self.activation_param = activation_param
+        if self.affine:
+            self.weight = nn.Parameter(torch.Tensor(num_features))
+            self.bias = nn.Parameter(torch.Tensor(num_features))
+        else:
+            self.register_parameter("weight", None)
+            self.register_parameter("bias", None)
+        if self.track_running_stats:
+            self.register_buffer("running_mean", torch.zeros(num_features))
+            self.register_buffer("running_var", torch.ones(num_features))
+            self.register_buffer(
+                "num_batches_tracked", torch.tensor(0, dtype=torch.long)
+            )
+        else:
+            self.register_parameter("running_mean", None)
+            self.register_parameter("running_var", None)
+            self.register_parameter("num_batches_tracked", None)
+        self.reset_parameters()
+
+    def reset_running_stats(self) -> None:
+        if self.track_running_stats:
+            self.running_mean.zero_()
+            self.running_var.fill_(1)
+            self.num_batches_tracked.zero_()
+
+    def reset_parameters(self) -> None:
+        self.reset_running_stats()
+        if self.affine:
+            nn.init.ones_(self.weight)
+            nn.init.zeros_(self.bias)
+
+    def _get_momentum_and_training(self):
+        if self.momentum is None:
+            momentum = 0.0
+        else:
+            momentum = self.momentum
+
+        if self.training and self.track_running_stats:
+            if self.num_batches_tracked is not None:
+                self.num_batches_tracked = self.num_batches_tracked + 1
+                if self.momentum is None:
+                    momentum = 1.0 / float(self.num_batches_tracked)
+                else:
+                    momentum = self.momentum
+
+        if self.training:
+            training = True
+        else:
+            training = (self.running_mean is None) and (self.running_var is None)
+
+        return momentum, training
+
+    def _get_running_stats(self):
+        running_mean = (
+            self.running_mean if not self.training or self.track_running_stats else None
+        )
+        running_var = (
+            self.running_var if not self.training or self.track_running_stats else None
+        )
+        return running_mean, running_var
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        momentum, training = self._get_momentum_and_training()
+        running_mean, running_var = self._get_running_stats()
+
+        x = F.batch_norm(
+            x,
+            running_mean,
+            running_var,
+            self.weight,
+            self.bias,
+            training,
+            momentum,
+            self.eps,
+        )
+
+        if self.activation == "relu":
+            return F.relu(x, inplace=True)
+        elif self.activation == "leaky_relu":
+            return F.leaky_relu(
+                x, negative_slope=self.activation_param, inplace=True
+            )
+        elif self.activation == "elu":
+            return F.elu(x, alpha=self.activation_param, inplace=True)
+        elif self.activation == "identity":
+            return x
+        else:
+            raise RuntimeError(f"Unknown activation function {self.activation}")
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        version = local_metadata.get("version", None)
+
+        if (version is None or version < 2) and self.track_running_stats:
+            # at version 2: added num_batches_tracked buffer
+            #               this should have a default value of 0
+            num_batches_tracked_key = prefix + "num_batches_tracked"
+            if num_batches_tracked_key not in state_dict:
+                state_dict[num_batches_tracked_key] = torch.tensor(0, dtype=torch.long)
+
+        super(ABN, self)._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+
+    def extra_repr(self):
+        rep = "{num_features}, eps={eps}, momentum={momentum}, affine={affine}, activation={activation}"
+        if self.activation in ["leaky_relu", "elu"]:
+            rep += "[{activation_param}]"
+        return rep.format(**self.__dict__)
+
 
 @registry.PREDICTOR.register("Base_Predictor")
 class _predictor(nn.Module):
@@ -53,7 +234,7 @@ class _predictor(nn.Module):
         else:
             self.class_head = nn.Sequential(
                 nn.Conv2d(in_channels, self.head_conv, kernel_size=3, padding=1, bias=False),
-                norm_func(self.head_conv, momentum=self.bn_momentum), nn.ReLU(inplace=True),
+                ABN(num_features=self.head_conv, momentum=self.bn_momentum),
                 nn.Conv2d(self.head_conv, classes, kernel_size=1, padding=1 // 2, bias=True),
             )
         
@@ -74,8 +255,8 @@ class _predictor(nn.Module):
                                     InPlaceABN(self.head_conv, momentum=self.bn_momentum, activation=self.abn_activision))
             else:
                 feat_layer = nn.Sequential(nn.Conv2d(in_channels, self.head_conv, kernel_size=3, padding=1, bias=False),
-                                    norm_func(self.head_conv, momentum=self.bn_momentum), nn.ReLU(inplace=True))
-            
+                                    ABN(num_features=self.head_conv, momentum=self.bn_momentum))
+
             self.reg_features.append(feat_layer)
             # init output head
             head_channels = self.regression_channel_cfg[idx]
@@ -124,6 +305,9 @@ class _predictor(nn.Module):
         # output classification
         feature_cls = self.class_head[:-1](features)
         output_cls = self.class_head[-1](feature_cls)
+        # expose for checking intermediate results
+        # self.feature_cls = feature_cls
+        # self.out_cls = output_cls
 
         output_regs = []
         # output regression
@@ -135,9 +319,12 @@ class _predictor(nn.Module):
 
                 # apply edge feature enhancement
                 if self.enable_edge_fusion and i == self.offset_index[0] and j == self.offset_index[1]:
-                    edge_indices = torch.stack([t.get_field("edge_indices") for t in targets]) # B x K x 2
-                    edge_lens = torch.stack([t.get_field("edge_len") for t in targets]) # B
-                    
+                    # edge_indices = torch.stack([t.get_field("edge_indices") for t in targets]) # B x K x 2
+                    # edge_lens = torch.stack([t.get_field("edge_len") for t in targets]) # B
+                    # Pyten-20210713-ForConvertingOnnx
+                    edge_indices = torch.stack([targets[0].get_field("edge_indices") for _ in range(b)]) # B x K x 2
+                    edge_lens = torch.stack([targets[0].get_field("edge_len") for _ in range(b)]) # B
+
                     # normalize
                     grid_edge_indices = edge_indices.view(b, -1, 1, 2).float()
                     grid_edge_indices[..., 0] = grid_edge_indices[..., 0] / (self.output_width - 1) * 2 - 1
@@ -158,11 +345,12 @@ class _predictor(nn.Module):
                         output_reg[k, :, edge_indice_k[:, 1], edge_indice_k[:, 0]] += edge_offset_output[k, :, :edge_lens[k]]
                 
                 output_regs.append(output_reg)
-
         output_cls = sigmoid_hm(output_cls)
         output_regs = torch.cat(output_regs, dim=1)
 
-        return {'cls': output_cls, 'reg': output_regs}
+        # Pyten-20210713-ForConvertingOnnx
+        # return {'cls': output_cls, 'reg': output_regs}
+        return output_cls, output_regs
 
 def make_predictor(cfg, in_channels):
     func = registry.PREDICTOR[cfg.MODEL.HEAD.PREDICTOR]
