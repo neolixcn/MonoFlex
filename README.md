@@ -69,8 +69,32 @@ You can also specify --vis when evaluation to visualize the predicted heatmap an
 
 **Note:** we observe an obvious variation of the performance for different runs and we are still investigating possible solutions to stablize the results, though it may inevitably due to the utilized uncertainties.
 
+## inference
+CUDA_VISIBLE_DEVICES=0 python tools/plain_train_net.py --config runs/monoflex.yaml --ckpt ./model_moderate_best_soft.pth --eval --vis
+
 ## ConvertOnnx
-run the following command to convert onnx.
+1. replace some folders and files with those named with suffix of "_onnx":
+ - model/backbone/DCNv2_onnx -> model/backbone/DCNv2
+ - model/head/detector_head_onnx.py -> model/head/detector_head.py
+ - model/head/detector_predictor_onnx.py -> model/head/detector_predictor.py
+ - model/detector_onnx.py -> model/detector.py
+2. change some files:
+ - change import way of DCNv2 in model/backbone/dla_dcn.py:
+```
+# from model.backbone.DCNv2.dcn_v2 import DCN
+from model.backbone.DCNv2.modules.deform_conv import ModulatedDeformConvPack as DCN
+```
+ - change dcn extension name in setup.py
+ ```
+  ext_modules = [
+        extension(
+            "deform_conv_cuda",
+            sources,
+            include_dirs=include_dirs,
+            define_macros=define_macros
+ ```
+
+3. rebuild dcn module and whole project, then run the following command to convert onnx.
 ```
 CUDA_VISIBLE_DEVICES=2 python tools/convert_onnx.py --config runs/monoflex.yaml --ckpt ./model_moderate_best_soft_noInabn.pth --export-name "monoflex_new.onnx"
 ```
