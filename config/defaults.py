@@ -57,7 +57,7 @@ _C.INPUT.ORIENTATION_BIN_SIZE = 4 # multi-bin
 
 # aug parameters, in fact only random horizontal flip is applied
 _C.INPUT.AUG_PARAMS = [[0.5]]
-
+_C.INPUT.VAL_PARAMS = [[0,0]]
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
@@ -99,7 +99,8 @@ _C.DATALOADER.SIZE_DIVISIBILITY = 0
 # is compatible. This groups portrait images together, and landscape images
 # are not batched with portrait images.
 _C.DATALOADER.ASPECT_RATIO_GROUPING = False
-
+# add unbalance data weight sampling 
+_C.DATALOADER.WEIGHT_SAMPLE = False 
 # ---------------------------------------------------------------------------- #
 # Backbone options
 # ---------------------------------------------------------------------------- #

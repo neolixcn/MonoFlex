@@ -21,7 +21,7 @@ from model.heatmap_coder import (
 )
 
 from structures.params_3d import ParamsList
-from data.augmentations import get_composed_augmentations
+from data.augmentations import get_composed_augmentations,get_composed_augmentations_val
 from .kitti_utils import Calibration, read_label, approx_proj_center, refresh_attributes, show_heatmap, show_image_with_boxes, show_edge_heatmap
 
 from config import TYPE_ID_CONVERSION
@@ -65,7 +65,7 @@ class KITTIDataset(Dataset):
 		self.use_right_img = cfg.DATASETS.USE_RIGHT_IMAGE & is_train
 
 		self.augmentation = get_composed_augmentations() if (self.is_train and augment) else None
-
+		self.augmentation_val = get_composed_augmentations_val() if not self.is_train else None
 		# input and output shapes
 		self.input_width = cfg.INPUT.WIDTH_TRAIN
 		self.input_height = cfg.INPUT.HEIGHT_TRAIN
@@ -272,10 +272,13 @@ class KITTIDataset(Dataset):
 		original_idx = self.image_files[idx][:6]
 		objs = self.filtrate_objects(objs) # remove objects of irrelevant classes
 		 
-		# random horizontal flip
+		# random horizontal flip and vertical random crop 
 		if self.augmentation is not None and self.is_train:
 			img, objs, calib = self.augmentation(img, objs, calib)
-
+		# center crop for validing
+		if self.augmentation_val is not None:
+			img, objs, calib = self.augmentation_val(img, objs, calib)
+		
 		# pad image
 		img_before_aug_pad = np.array(img).copy()
 		img_w, img_h = img.size

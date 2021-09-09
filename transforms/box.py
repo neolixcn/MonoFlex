@@ -82,7 +82,8 @@ def box_iou(box1, box2):
 
     area1 = (box1[:,2]-box1[:,0]) * (box1[:,3]-box1[:,1])  # [N,]
     area2 = (box2[:,2]-box2[:,0]) * (box2[:,3]-box2[:,1])  # [M,]
-    iou = inter / (area1[:,None] + area2 - inter)
+    #iou = inter / (area1[:,None] + area2 - inter)
+    iou = inter / (area1[:,None] + 0.01)
     return iou
 
 import numpy as np
