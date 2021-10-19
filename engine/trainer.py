@@ -102,15 +102,20 @@ def do_train(
 	
 	for data, iteration in zip(data_loader, range(start_iter, max_iter)):
 		data_time = time.time() - end
-
+		model.train()
 		images = data["images"].to(device)
 		targets = [target.to(device) for target in data["targets"]]
 		
 		loss_dict, log_loss_dict = model(images, targets)
-		weights = [3,1,1,1,1,1,1,1,1,1,1]
+		#result_dict, result_str, dis_ious = do_eval(cfg, model, data_loaders_val, iteration)
+		#weights = [3,1,1,1,1,2,1,1,1,1,1]
 		#losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
 		cur_epoch = iteration // arguments["iter_per_epoch"]
-		if cur_epoch >45:
+		if cur_epoch >60:
+			weights = [3,3,1,1,3,3,1,1,1,1,1]
+			losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		elif cur_epoch >45:
+			weights = [3,1,1,1,1,1,1,1,1,1,1]
 			losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
 		else:
 			losses = sum(loss for loss in loss_dict.values())
@@ -174,7 +179,7 @@ def do_train(
 			cur_epoch = iteration // arguments["iter_per_epoch"]
 			
 			if comm.get_rank() == 0:
-				if cur_epoch >=40 and cur_epoch%2 ==0:
+				if cur_epoch >=60 and cur_epoch%2 ==0:
 					checkpointer.save("model_checkpoint_epoch_{}".format(str(cur_epoch)), **arguments)
 				checkpointer.save("model_checkpoint", **arguments)
 			
@@ -204,8 +209,14 @@ def do_train(
 					writer.add_scalar("IoUs_{}/{}".format(key, default_depth_method), value, eval_iteration + 1)				
 
 				# record the best model according to the AP_3D, Car, Moderate, IoU=0.7
-				important_key = '{}_3d_{:.2f}/moderate'.format('Car', 0.7)
-				eval_mAP = float(result_dict[important_key])
+				# important_key = '{}_3d_{:.2f}/moderate'.format('Car', 0.7)
+				# important_key_cyclist = '{}_3d_{:.2f}/moderate'.format('Cyclist', 0.5)
+				# important_key_pedestrain = '{}_3d_{:.2f}/moderate'.format('Pedestrian', 0.5)
+				# eval_mAP = float(result_dict[important_key])+float(result_dict[important_key_cyclist]) +float(result_dict[important_key_pedestrain])
+				important_key = '{}_recall'.format('Car')
+				important_key_cyclist = '{}_recall'.format('Cyclist')
+				important_key_pedestrain = '{}_recall'.format('Pedestrian')
+				eval_mAP = (float(result_dict[important_key])+float(result_dict[important_key_cyclist]) +float(result_dict[important_key_pedestrain]))
 				if eval_mAP >= best_mAP:
 					# save best mAP and corresponding iterations
 					best_mAP = eval_mAP

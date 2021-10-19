@@ -317,7 +317,8 @@ class Loss_Computation():
 					trunc_offset_loss = torch.log(1 + offset_3D_loss[trunc_mask])
 
 				trunc_offset_loss = self.loss_weights['trunc_offset_loss'] * trunc_offset_loss.sum() / torch.clamp(trunc_mask.sum(), min=1)
-				offset_3D_loss = self.loss_weights['offset_loss'] * offset_3D_loss[~trunc_mask].mean()
+				#offset_3D_loss = self.loss_weights['offset_loss'] * offset_3D_loss[~trunc_mask].mean()
+				offset_3D_loss = self.loss_weights['offset_loss'] * offset_3D_loss.mean()
 			else:
 				offset_3D_loss = self.loss_weights['offset_loss'] * offset_3D_loss.mean()
 
@@ -482,10 +483,12 @@ class Loss_Computation():
 				log_loss_dict[key] = value.item()
 
 		# stop when the loss has NaN or Inf
-		for v in loss_dict.values():
+		for key, v in loss_dict.items():
 			if torch.isnan(v).sum() > 0:
+				print("************grad NaN ********",key)
 				pdb.set_trace()
 			if torch.isinf(v).sum() > 0:
+				print("************grad Inf ********",key)
 				pdb.set_trace()
 
 		log_loss_dict.update(MAE_dict)

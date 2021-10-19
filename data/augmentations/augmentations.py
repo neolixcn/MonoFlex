@@ -21,18 +21,19 @@ class Compose(object):
             self.PIL2Numpy = True
 
         for a in self.augmentations:
-            img, objs, calib = a(img, objs, calib)
+            img, objs, calib,trans_affine_inv = a(img, objs, calib)
 
         if self.PIL2Numpy:
             img = np.array(img)
 
-        return img, objs, calib
+        return img, objs, calib,trans_affine_inv
 
 class RandomHorizontallyFlip(object):
     def __init__(self, p):
         self.p = p
 
     def __call__(self, img, objs, calib):
+        trans_affine_inv = None
         if random.random() < self.p:
             # flip image
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
@@ -77,11 +78,11 @@ class RandomHorizontallyFlip(object):
             calib.P = P2
             refresh_attributes(calib)
 
-        return img, objs, calib
+        return img, objs, calib,trans_affine_inv
 
 class RandomAffineCrop(object):
-    def __init__(self,shift,scale):
-        self.input_width, self.input_height = 1280, 384
+    def __init__(self,width,height,shift,scale):
+        self.input_width, self.input_height = width,height
        
         self.shift= shift
         self.scale= scale
@@ -105,7 +106,7 @@ class RandomAffineCrop(object):
         center_size = [center, size]
 
         # calculate affine matrix = resize along x axis and crop with random center 
-        trans_affine = get_transfrom_matrix(
+        trans_affine,affine_cv = get_transfrom_matrix(
             center_size,
             [self.input_width, self.input_height]
         )
@@ -142,7 +143,7 @@ class RandomAffineCrop(object):
             ious = box_iou(torch.Tensor(box2d).view(-1,4), roi)
 
             # only save object when iou is plus 0.1 
-            if ious > 0.1 :
+            if ious > 0.2 :
                 save_id.append(idx)
             
             # update truncation coef 
@@ -152,4 +153,4 @@ class RandomAffineCrop(object):
         
         objs = [objs[id] for id in save_id]
 
-        return img, objs, calib
+        return img, objs, calib, trans_affine_inv

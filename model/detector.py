@@ -19,9 +19,9 @@ class KeypointDetector(nn.Module):
 
     def __init__(self, cfg):
         super(KeypointDetector, self).__init__()
-        if cfg.MODEL.BACKBONE.CONV_BODY == "dla34":
+        if cfg.MODEL.BACKBONE.CONV_BODY == "dla34" or cfg.MODEL.BACKBONE.CONV_BODY == "hg":
             self.backbone = build_backbone(cfg)
-        else:
+        elif cfg.MODEL.BACKBONE.CONV_BODY =="resnet":
             self.backbone = get_resnet(cfg)
         self.heads = bulid_head(cfg, self.backbone.out_channels)
         self.test = cfg.DATASETS.TEST_SPLIT == 'test'

@@ -190,7 +190,8 @@ def show_image_with_boxes(image, output, target, visualize_preds, image_ids, vis
 		print('detections / gt objs: {} / {}'.format(box2d.shape[0], num_gt))
 
 	pred_heatmap = visualize_preds['heat_map']
-	all_heatmap = np.asarray(pred_heatmap[0, 0, ...].cpu())
+	all_heatmap = np.asarray(pred_heatmap[0, ...].cpu())
+	all_heatmap = all_heatmap.transpose((1,2,0))
 	all_heatmap = cv2.resize(all_heatmap, (image.shape[1], image.shape[0]))
 
 	img2 = Visualizer(image.copy()) # for 2d bbox
@@ -242,17 +243,19 @@ def show_image_with_boxes(image, output, target, visualize_preds, image_ids, vis
 			img4 = draw_bev_box3d(img4, corners3d[np.newaxis, :], thickness=2, color=gt_color, scores=None)
 
 	img2 = img2.output.get_image()
-	heat_mixed = img2.astype(np.float32) / 255 + all_heatmap[..., np.newaxis] * np.array([1, 0, 0]).reshape(1, 1, 3)
+	heat_mixed = 255*all_heatmap # image.astype(np.float32) +* np.array([255, 0, 0]).reshape(1, 1, 3)
+	heat_mixed = heat_mixed.astype(np.uint8)
 	img4 = cv2.resize(img4, (img3.shape[0], img3.shape[0]))
 	stack_img = np.concatenate([img3, img4], axis=1)
+	stack_img = np.concatenate([stack_img, heat_mixed], axis=1)
 
 
-	new_save_path = "/home/lipengcheng/results/neolix_test"
+	new_save_path = "/data/lpc_data/test/vis_tmp/"# "/home/lipengcheng/results/neolix_test"
 	if not os.path.exists(new_save_path):
 		os.makedirs(new_save_path)
 
 	result = os.path.join(new_save_path, image_ids[0] + ".png")
-	img_result = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)#stack_img
+	img_result = cv2.cvtColor(stack_img, cv2.COLOR_BGR2RGB)#
 	cv2.imwrite(result, img_result)
 	# plt.figure(figsize=(12, 8))
 	# plt.subplot(211)

@@ -1,13 +1,13 @@
 import os
 
 class DatasetCatalog():
-    DATA_DIR = "/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/"
+    DATA_DIR = "/nfs/neolix_data1/OpenSource_dataset/camera_object_detection/kitti_format/nuscense/"#"/data/lpc_data/test/nuscense/" #"/nfs/neolix_data1/OpenSource_dataset/camera_object_detection/kitti_format/" #"/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/" #  ## # ##
     DATASETS = {
         "kitti_train": {
-            "root": "training/",
+            "root": "train/",#"train", #training
         },
         "kitti_test": {
-            "root": "testing/",
+            "root": "testing/",#'testing'
         },
 
     }

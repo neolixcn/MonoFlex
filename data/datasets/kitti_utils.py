@@ -202,11 +202,15 @@ class Calibration(object):
         
         # Rigid transform from Velodyne coord to reference camera coord
         self.V2C = calibs["Tr_velo_to_cam"]
+        if self.V2C.size == 16:
+            self.V2C = self.V2C[:12]
         self.V2C = np.reshape(self.V2C, [3, 4])
         self.C2V = inverse_rigid_trans(self.V2C)
         
         # Rotation from reference camera coord to rect camera coord
         self.R0 = calibs["R0_rect"]
+        if self.R0.sum()==0:
+            self.R0 = np.eye(3)
         self.R0 = np.reshape(self.R0, [3, 3])
 
         # Camera intrinsics and extrinsics
@@ -1162,12 +1166,12 @@ def show_image_with_boxes(image, cls_ids, target_center, box2d, corners_2d, reg_
     img2 = img2_vis.output.get_image()
     stacked_img = np.vstack((img2, img3))
 
-    if vis:
-        plt.figure(figsize=(10, 6))
-        plt.imshow(stacked_img)
-        plt.show()
+    # if vis:
+    #     plt.figure(figsize=(10, 6))
+    #     plt.imshow(stacked_img)
+    #     plt.show()
 
-    return img3
+    return stacked_img
 
 def show_edge_heatmap(img, edge_heatmap, interp_edge_indices, output_size):
     # output_size: w, h
@@ -1202,17 +1206,18 @@ def show_heatmap(img, heat_map, classes=['Car', 'Pedestrian', 'Cyclist'], index=
         all_heat_img += class_map
 
     # import imageio
-    # imageio.imsave('heatmap_img_{}.png'.format(index), mix_img)
+    # imageio.imsave('/data/lpc_data/test/heatmap_img_{}.png'.format(index), mix_img)
+    # print(index)
 
-    plt.figure(figsize=(10, 6))
-    plt.subplot(311)
-    plt.imshow(img)
-    plt.axis('off')
-    plt.subplot(312)
-    plt.imshow(mix_img)
-    plt.axis('off')
-    plt.subplot(313)
-    plt.imshow(all_heat_img)
-    plt.axis('off')
-    plt.show()
+    # plt.figure(figsize=(10, 6))
+    # plt.subplot(311)
+    # plt.imshow(img)
+    # plt.axis('off')
+    # plt.subplot(312)
+    # plt.imshow(mix_img)
+    # plt.axis('off')
+    # plt.subplot(313)
+    # plt.imshow(all_heat_img)
+    # plt.axis('off')
+    # plt.show()
 

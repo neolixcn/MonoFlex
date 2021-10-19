@@ -29,34 +29,107 @@ from config import TYPE_ID_CONVERSION
 class KITTIDataset(Dataset):
 	def __init__(self, cfg, root, is_train=True, transforms=None, augment=True):
 		super(KITTIDataset, self).__init__()
-		self.root = root
-		self.image_dir = os.path.join(root, "image_2")
-		self.image_right_dir = os.path.join(root, "image_3")
-		self.label_dir = os.path.join(root, "label_2")
-		self.calib_dir = os.path.join(root, "calib")
+		
 
 		self.split = cfg.DATASETS.TRAIN_SPLIT if is_train else cfg.DATASETS.TEST_SPLIT
 		self.is_train = is_train
 		self.transforms = transforms
-		if self.is_train :
-			self.imageset_txt = os.path.join(root, "ImageSets", "{}_7000.txt".format(self.split))
+		if self.split =='train' :
+			self.root = root
+			self.opendataset = 'nuscenes' #'waymo'#'nuscenes'
 		else:
-			print("sdddddddddd:  ",self.split)
-			if self.split == "test":
-				self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format('test_bak'))
-			else:
-				self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format(self.split))
-		print(self.imageset_txt)
-		assert os.path.exists(self.imageset_txt), "ImageSets file not exist, dir = {}".format(self.imageset_txt)
+			self.root = "/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/"
+			self.opendataset = 'neolix'
+			self.split ='valid'
+		# if self.is_train :
+		# 	self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format(self.split))
+		# else:
+		# 	self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format(self.split))
+		# 	if self.split == "test":
+		# 		self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format('test'))
+		# 	else:
+		# 		if self.opendataset == 'kitti' or self.split =='val':
+		# 			self.imageset_txt = os.path.join('/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training', "ImageSets", "{}_7000.txt".format(self.split))
+		# 		else:
+		# 			self.imageset_txt = os.path.join(self.root,"ImageSets", 'waymo_kitti_{}_label.txt'.format(self.split))
+		#print(self.imageset_txt)
+		#assert os.path.exists(self.imageset_txt), "ImageSets file not exist, dir = {}".format(self.imageset_txt)
 
-		image_files = []
-		for line in open(self.imageset_txt, "r"):
-			base_name = line.replace("\n", "")
-			image_name = base_name + ".png"
-			image_files.append(image_name)
+		self.image_dir = os.path.join(self.root , "image_2")
+		self.image_right_dir = os.path.join(self.root , "image_3")
+		self.label_dir = os.path.join(self.root , "label_2")
+		self.calib_dir = os.path.join(self.root , "calib")
 
-		self.image_files = image_files
-		self.label_files = [i.replace(".png", ".txt") for i in self.image_files]
+		######################### mix kitti and nuscenes data ####################################################
+		
+		if self.split =='train' and self.opendataset!= 'kitti':
+			
+			image_files = []
+			imageset_txt_path = os.path.join(self.root,"ImageSets", '{}_{}_img.txt'.format(self.opendataset,self.split))
+			for line in open(imageset_txt_path, "r"):
+				base_name = line.replace("\n", "")
+				image_files.append(base_name)
+			self.image_files = image_files#[:300]
+
+			label_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_{}_label.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				label_files.append(base_name)
+			self.label_files = label_files#[:300]
+
+			calib_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_{}_calib.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				calib_files.append(base_name)
+			self.calib_files = calib_files#[:300]
+			self.imageset_txt =imageset_txt_path
+		else:
+			
+			
+			image_files = []
+			imageset_txt_path = os.path.join(self.root,"ImageSets", '{}_{}_img.txt'.format(self.opendataset,self.split))
+			for line in open(imageset_txt_path, "r"):
+				base_name = line.replace("\n", "")
+				image_files.append(base_name)
+			self.image_files = image_files
+
+			label_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_{}_label.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				label_files.append(base_name)
+			self.label_files = label_files
+
+			calib_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_{}_calib.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				calib_files.append(base_name)
+			self.calib_files = calib_files
+			self.imageset_txt =imageset_txt_path
+			# image_files = []
+			# for line in open(self.imageset_txt, "r"):
+			# 	base_name = line.replace("\n", "")
+			# 	image_name = base_name + ".png"
+			# 	image_files.append(image_name)
+			# self.root ="/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/"
+			# self.image_dir = os.path.join(self.root, "image_2")
+			# self.label_dir = os.path.join(self.root, "label_2")
+			# self.calib_dir = os.path.join(self.root, "calib")
+			# self.image_files = image_files
+			# self.label_files = [i.replace(".png", ".txt") for i in self.image_files]
+
+			# self.label_dir = os.path.join('/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training', "label_2")
+			# self.imageset_txt = os.path.join(self.root,"ImageSets", '{}_kitti_{}_label.txt'.format(self.opendataset,self.split))
+		##########################################################################################################
+
+		# if self.split == "test":
+		# 	self.image_dir = "/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/"
+		# 	self.label_files = ["front_3mm_intrinsics.txt" for i in self.image_files]
+		# 	self.calib_dir = "/home/lipengcheng/data/neolix/calib/"
+			
 		self.classes = cfg.DATASETS.DETECT_CLASSES
 		self.num_classes = len(self.classes)
 		self.num_samples = len(self.image_files)
@@ -113,23 +186,38 @@ class KITTIDataset(Dataset):
 			return self.num_samples
 
 	def get_image(self, idx):
-		img_filename = os.path.join(self.image_dir, self.image_files[idx])
+		# if self.opendataset == 'kitti' or self.split =='val':
+		# 	img_filename = os.path.join(self.image_dir, self.image_files[idx])
+		# else:
+		# 	img_filename =  self.image_files[idx]
+		#img_filename = '/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/image_dis/20210521180702.record.00011_1621592106.259370.png'
+		img_filename =  self.image_files[idx]
 		img = Image.open(img_filename).convert('RGB')
 		return img
 
 	def get_right_image(self, idx):
-		img_filename = os.path.join(self.image_right_dir, self.image_files[idx])
+		#img_filename = os.path.join(self.image_right_dir, self.image_files[idx])
+		img_filename =  self.image_files[idx]
 		img = Image.open(img_filename).convert('RGB')
 		return img
 
 	def get_calibration(self, idx, use_right_cam=False):
-		calib_filename = os.path.join(self.calib_dir, self.label_files[idx])
+		# if self.opendataset == 'kitti'or self.split =='val':
+		# 	calib_filename = os.path.join(self.calib_dir, self.label_files[idx])
+		# else:
+		# 	calib_filename = self.calib_files[idx]
+		calib_filename = self.calib_files[idx]
+		#calib_filename = '/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/calib/20210521180702.record.00011_1621592106.259370.txt'
 		return Calibration(calib_filename, use_right_cam=use_right_cam)
 
 	def get_label_objects(self, idx):
-		if self.split != 'test':
-			label_filename = os.path.join(self.label_dir, self.label_files[idx])
-		
+		# if self.split != 'test':
+		# 	if self.opendataset == 'kitti' or self.split =='val':
+		# 		label_filename = os.path.join(self.label_dir, self.label_files[idx])
+		# 	else:
+		# 		label_filename = self.label_files[idx]
+		#label_filename = '/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/eval/eval_python/20210521180702.record.00011_1621592106.259370.txt'
+		label_filename = self.label_files[idx]
 		return read_label(label_filename)
 
 	def get_edge_utils(self, image_size, pad_size, down_ratio=4):
@@ -217,6 +305,8 @@ class KITTIDataset(Dataset):
 		type_whitelist = self.classes
 		valid_obj_list = []
 		for obj in obj_list:
+			if obj.type == 'Van':
+				obj.type = 'Car'
 			if obj.type not in type_whitelist:
 				continue                
 			
@@ -268,16 +358,16 @@ class KITTIDataset(Dataset):
 			objs = [] if self.split == 'test' else self.get_label_objects(idx)
 
 			use_right_img = False
-
-		original_idx = self.image_files[idx][:6]
+		
+		original_idx = self.image_files[idx].split('/')[-1][:-4]
+		#print("  original_idx :  ",original_idx)
 		objs = self.filtrate_objects(objs) # remove objects of irrelevant classes
-		 
-		# random horizontal flip and vertical random crop 
+		# cv2.imwrite("/home/lipengcheng/results/kitti_test/original_{}".format(str(original_idx)),np.array(img))
+		# random horizontal flip
 		if self.augmentation is not None and self.is_train:
-			img, objs, calib = self.augmentation(img, objs, calib)
-		# center crop for validing
+			img, objs, calib,trans_affine_inv = self.augmentation(img, objs, calib)
 		if self.augmentation_val is not None:
-			img, objs, calib = self.augmentation_val(img, objs, calib)
+			img, objs, calib ,trans_affine_inv = self.augmentation_val(img, objs, calib)
 		
 		# pad image
 		img_before_aug_pad = np.array(img).copy()
@@ -348,7 +438,10 @@ class KITTIDataset(Dataset):
 
 		for i, obj in enumerate(objs):
 			cls = obj.type
-			cls_id = TYPE_ID_CONVERSION[cls]
+			if cls == 'Pedestrian'or cls == 'Car' or cls =='Cyclist':
+				cls_id = TYPE_ID_CONVERSION[cls]
+			else:
+				cls_id = -1
 			if cls_id < 0: continue
 
 			# TYPE_ID_CONVERSION = {
@@ -505,7 +598,10 @@ class KITTIDataset(Dataset):
 		# visualization
 		# img3 = show_image_with_boxes(img, cls_ids, target_centers, bboxes.copy(), keypoints, reg_mask, 
 		# 							offset_3D, self.down_ratio, pad_size, orientations, vis=True)
-		# show_heatmap(img, heat_map, index=original_idx)
+		#cv2.imwrite("/home/lipengcheng/results/kitti_test/{}_2d.jpg".format(str(original_idx)),ori_img)
+		
+		#show_heatmap(img, heat_map, index=original_idx)
+		#cv2.imwrite("/home/lipengcheng/results/kitti_test/{}.jpg".format(str(original_idx)),img3)
 
 		target = ParamsList(image_size=img.size, is_train=self.is_train) 
 		target.add_field("cls_ids", cls_ids)
@@ -529,6 +625,7 @@ class KITTIDataset(Dataset):
 		target.add_field("gt_bboxes", gt_bboxes) # for validation visualization
 		target.add_field("occlusions", occlusions)
 		target.add_field("truncations", truncations)
+		target.add_field("trans_affine_inv", trans_affine_inv)
 
 		if self.enable_edge_fusion:
 			target.add_field('edge_len', input_edge_count)
