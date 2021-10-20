@@ -48,6 +48,8 @@ def get_extensions():
     ext_modules = [
         extension(
             "_ext",
+            # for converting onnx
+            # "deform_conv_cuda",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
