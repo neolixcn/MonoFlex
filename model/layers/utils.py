@@ -77,7 +77,8 @@ def select_topk(heat_map, K=100):
     topk_scores_all, topk_inds_all = torch.topk(heat_map, K)
 
     # topk_inds_all = topk_inds_all % (height * width) # todo: this seems redudant
-    topk_ys = (topk_inds_all / width).float()
+    #topk_ys = (topk_inds_all // width).float()
+    topk_ys = torch.div(topk_inds_all, width, rounding_mode='trunc').float()
     topk_xs = (topk_inds_all % width).float()
 
     assert isinstance(topk_xs, torch.cuda.FloatTensor)
@@ -88,7 +89,8 @@ def select_topk(heat_map, K=100):
     topk_scores_all = topk_scores_all.view(batch, -1)
     # Both in [N, K]
     topk_scores, topk_inds = torch.topk(topk_scores_all, K)
-    topk_clses = (topk_inds / K).float()
+    # topk_clses = (topk_inds // K).float()
+    topk_clses = torch.div(topk_inds , K,rounding_mode='trunc').float()
 
     assert isinstance(topk_clses, torch.cuda.FloatTensor)
 

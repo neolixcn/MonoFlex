@@ -1,5 +1,7 @@
 import os,cv2
-os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+import sys
+sys.path.append('/root/code/cloneServer/MonoFlex')
 import torch
 import uuid
 #from model.backbone.HGFilters import HGFilter
@@ -105,7 +107,7 @@ def box3d_to_corners(locs, dims, roty):
 
 def preprocess(img,mean,std,calib_filename):
     input_width = 1280 
-    input_height = 384 
+    input_height = 704 
     # center = np.array([i / 2 for i in img.size], dtype=np.float32)
     # size = np.array([img.size[0],img.size[1]], dtype=np.float32)
     center = np.array([img.shape[1]//2,img.shape[0]//2], dtype=np.float32)
@@ -313,9 +315,9 @@ if __name__ == "__main__":
     #ckpt = "/home/lipengcheng/code/fuxian/MonoFlex/output/toy_experiments/NoAbnNoDcnData7000/model_moderate_best_soft_epoch40.pth"
     #ckpt ='/home/lipengcheng/MonoFlex-llt/test/new_basic_7000.pth'
     #ckpt = '/data/lpc_model/nuscense_project2d/model_checkpoint_epoch_80.pth' # monoflex 12  
-    #ckpt = '/nfs/neolix_data1/lpc_model/monoflex_16/model_checkpoint_epoch_70.pth' #目前最好
-    ckpt = '/data/lpc_model/monoflex_15/model_moderate_best_soft.pth'
-    model_param = torch.load(ckpt,map_location='cpu')
+    ckpt = '/root/data/lpc_model/monoflex_16/model_checkpoint_epoch_70.pth' #目前最好
+    #ckpt = '/data/lpc_model/monoflex_15/model_moderate_best_soft.pth'
+    model_param = torch.load(ckpt)
     _ = checkpointer.load(ckpt, use_latest=args.ckpt is None)
     
     #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/id_8_hg_train_verygood.pth")
@@ -357,11 +359,11 @@ if __name__ == "__main__":
             opendataset = 'neolix'#'kitti'
             
             if opendataset == 'neolix':
-                src_dir = "/nfs/neolix_data1//neolix_dataset/test_dataset/camera_object_detection/image_2/"
+                src_dir = "/root/data/neolix_dataset/test_dataset/camera_object_detection/image_2/"
                 #src_dir = "/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/"
                 imgs_path_list = get_imgs_path(src_dir)
                 imgs_path_list.sort()
-                save_dir = "/home/lipengcheng/results/yizhuang/eval3/neolix_1/"
+                save_dir = "/root/data/lpc_model/neolix_test/"
                 s = 0
                 e = len(imgs_path_list)-1 #500#
                 if not os.path.exists(save_dir):
@@ -400,82 +402,83 @@ if __name__ == "__main__":
                     os.makedirs(save_dir+'eval_txt')
 
             pp = postprcess(cfg).cuda()
-            
-            for k,impath in enumerate(imgs_path_list[s:e]):
-                if opendataset =='kitti':
-                    calibrationPath = '/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training/calib/'+impath.split('/')[-1].replace('png','txt')
-                elif opendataset =='neolix':
-                    calibrationPath = "/home/lipengcheng/data/neolix/calib/front_3mm_intrinsics.yaml"
-                elif opendataset =='nuscenes':
-                    calibrationPath = impath.replace('image_2','calib').replace('png','txt')
-                label_filename_gt = "/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/label_2/"+impath.split('/')[-1].replace('png','txt')
-                if os.path.exists(label_filename_gt):
-                    label = read_label(label_filename_gt)
-                #fh = open(os.path.join(save_dir+'eval_txt',impath.split('/')[-1].replace('png','txt')) ,'w')
-                #imgpath ='/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/10_7_record.00000_1622538455.344359400.png'
-                img = cv2.imread(impath)
-                cv2.imwrite("/home/lipengcheng/results/"+ 'ori.png' ,img)
-                img_vis = img.copy()
-                h,w,_  =img.shape
-                #img = Image.open(impath).convert('RGB')
-                name = impath.split('/')[-1]
+            with torch.no_grad():
+                for k,impath in enumerate(imgs_path_list[s:e]):
+                    
+                    if opendataset =='kitti':
+                        calibrationPath = '/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training/calib/'+impath.split('/')[-1].replace('png','txt')
+                    elif opendataset =='neolix':
+                        calibrationPath = "/root/data/neolix_dataset/test_dataset/camera_object_detection/calib/"+impath.split('/')[-1].replace('png','txt')
+                    elif opendataset =='nuscenes':
+                        calibrationPath = impath.replace('image_2','calib').replace('png','txt')
+                    label_filename_gt = "/root/data/neolix_dataset/test_dataset/camera_object_detection/label_2/"+impath.split('/')[-1].replace('png','txt')
+                    if os.path.exists(label_filename_gt):
+                        label = read_label(label_filename_gt)
+                    #fh = open(os.path.join(save_dir+'eval_txt',impath.split('/')[-1].replace('png','txt')) ,'w')
+                    #imgpath ='/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/10_7_record.00000_1622538455.344359400.png'
+                    img = cv2.imread(impath)
+                    #cv2.imwrite("/home/lipengcheng/results/"+ 'ori.png' ,img)
+                    img_vis = img.copy()
+                    h,w,_  =img.shape
+                    #img = Image.open(impath).convert('RGB')
+                    name = impath.split('/')[-1]
 
-                pixel_mean = torch.from_numpy(np.array([0.485, 0.456, 0.406]))
+                    pixel_mean = torch.from_numpy(np.array([0.485, 0.456, 0.406]))
 
-                pixel_std = torch.from_numpy(np.array([0.229, 0.224, 0.225]))
+                    pixel_std = torch.from_numpy(np.array([0.229, 0.224, 0.225]))
 
-                img ,img_numpy, calib ,trans_affine_inv = preprocess(img,pixel_mean,pixel_std,calibrationPath)
+                    img ,img_numpy, calib ,trans_affine_inv = preprocess(img,pixel_mean,pixel_std,calibrationPath)
 
-                img =img.unsqueeze(0).to('cuda')    
-                cv2.imwrite("/home/lipengcheng/results/"+ 'crop.png' ,img_numpy)
-                #cv2.imwrite("/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/image_yz/"+name[:-4]+ '.png' ,img_numpy)
-                # copyfile('/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/0.txt','/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/'+name[:-4]+ '.txt')
+                    img =img.unsqueeze(0).to('cuda')    
+                    cv2.imwrite(save_dir+ 'crop.png' ,img_numpy)
+                    #cv2.imwrite("/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/image_yz/"+name[:-4]+ '.png' ,img_numpy)
+                    # copyfile('/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/0.txt','/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/'+name[:-4]+ '.txt')
 
-                #delta = img_numpy - img4 
-                #img = torch.ones((1, 3, 384, 1280)).to('cuda')
-                img3 = img_numpy.copy()
+                    #delta = img_numpy - img4 
+                    #img = torch.ones((1, 3, 384, 1280)).to('cuda')
+                    img3 = img_numpy.copy()
 
-                output_cls,  output_regs ,features =  model(img)
+                    output_cls,  output_regs ,features =  model(img)
 
-                
-                #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/dla_model.pth")
+                    
+                    #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/dla_model.pth")
 
-                clses,alphas,rotys,box2d, dims, score,locs = pp(output_cls,  output_regs, calib)
-                if clses is None:
-                    #cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
-                    cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img_vis)
-                    continue
-                clses,alphas,rotys,box2d, dims, score,locs =clses.data.cpu().numpy(),alphas.data.cpu().numpy(),rotys.data.cpu().numpy(),box2d.data.cpu().numpy(), dims.data.cpu().numpy(), score.data.cpu().numpy(),locs.data.cpu().numpy()
-                box2d = update2Dbox2OriIm(box2d,trans_affine_inv,w,h)
-                for i in range(box2d.shape[0]):
-                    #img2.draw_box(box_coord=box2d[i], edge_color='g')
-                    if score[i]>=vis_thd:
-                        corners3d = box3d_to_corners(locs[i], dims[i], rotys[i])
-                        calib = Calibration(calibrationPath)
-                        corners_2d, depth = calib.project_rect_to_image(corners3d)
-                        img3 = draw_projected_box3d(img_vis, corners_2d, cls=ID_TYPE_CONVERSION[clses[i]], color=pred_color, draw_orientation=True,draw_corner=False)
-                        img3 = Visualizer(img3.copy())
-                        img3.draw_text(text='{},{}, {}, {}, {:.3f},{:.2f},{:.2f},{:.2f}'.format("id :",i, ID_TYPE_CONVERSION[clses[i]],int(clses[i]), score[i], dims[i,0],dims[i,1],dims[i,2]), position=(int(box2d[i, 0]), int(box2d[i, 1])))
-                        img3 = img3.output.get_image().astype(np.uint8)
-                        #fh.write(classes[int(clses[i])]+' '+ str(0)+' '+str(0)+ ' '+str(alphas[i])+ ' '+str(int(box2d[i,0]))+ ' '+str(int(box2d[i,1]))+' '+ str(int(box2d[i,2]))+ ' '+str(int(box2d[i,3]))+ ' '+str(dims[i,0])+ ' '+str(dims[i,1])+' '+ str(dims[i,2])+ ' '+str(locs[i,0])+ ' '+str(locs[i,1])+ ' '+str(locs[i,2])+ ' '+str(rotys[i])+'\n')
-                cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img3)
-            
-                #fh.close()
-                # for bb in box2d:
-                #     cv2.rectangle(img_vis, (int(bb[0]),int(bb[1])), (int(bb[2]),int(bb[3])), (0,0,255), thickness = 2)
+                    clses,alphas,rotys,box2d, dims, score,locs = pp(output_cls,  output_regs, calib)
+                    if clses is None:
+                        #cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
+                        cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img_vis)
+                        continue
+                    clses,alphas,rotys,box2d, dims, score,locs =clses.data.cpu().numpy(),alphas.data.cpu().numpy(),rotys.data.cpu().numpy(),box2d.data.cpu().numpy(), dims.data.cpu().numpy(), score.data.cpu().numpy(),locs.data.cpu().numpy()
+                    box2d = update2Dbox2OriIm(box2d,trans_affine_inv,w,h)
+                    for i in range(box2d.shape[0]):
+                        #img2.draw_box(box_coord=box2d[i], edge_color='g')
+                        if score[i]>=vis_thd:
+                            corners3d = box3d_to_corners(locs[i], dims[i], rotys[i])
+                            calib = Calibration(calibrationPath)
+                            corners_2d, depth = calib.project_rect_to_image(corners3d)
+                            img3 = draw_projected_box3d(img_vis, corners_2d, cls=ID_TYPE_CONVERSION[clses[i]], color=pred_color, draw_orientation=True,draw_corner=False)
+                            img3 = Visualizer(img3.copy())
+                            img3.draw_text(text='{},{}, {}, {}, {:.3f},{:.2f},{:.2f},{:.2f}'.format("id :",i, ID_TYPE_CONVERSION[clses[i]],int(clses[i]), score[i], dims[i,0],dims[i,1],dims[i,2]), position=(int(box2d[i, 0]), int(box2d[i, 1])))
+                            img3 = img3.output.get_image().astype(np.uint8)
+                            #fh.write(classes[int(clses[i])]+' '+ str(0)+' '+str(0)+ ' '+str(alphas[i])+ ' '+str(int(box2d[i,0]))+ ' '+str(int(box2d[i,1]))+' '+ str(int(box2d[i,2]))+ ' '+str(int(box2d[i,3]))+ ' '+str(dims[i,0])+ ' '+str(dims[i,1])+' '+ str(dims[i,2])+ ' '+str(locs[i,0])+ ' '+str(locs[i,1])+ ' '+str(locs[i,2])+ ' '+str(rotys[i])+'\n')
+                    cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img3)
+                    
+                    #fh.close()
+                    # for bb in box2d:
+                    #     cv2.rectangle(img_vis, (int(bb[0]),int(bb[1])), (int(bb[2]),int(bb[3])), (0,0,255), thickness = 2)
 
-                # cv2.imwrite('/home/lipengcheng/results/tmp/a.jpg',img_vis )
-                # img_numpy =img_numpy[...,[2,1,0]]
-                # img2 = Visualizer(np.array(img_numpy))
+                    # cv2.imwrite('/home/lipengcheng/results/tmp/a.jpg',img_vis )
+                    # img_numpy =img_numpy[...,[2,1,0]]
+                    # img2 = Visualizer(np.array(img_numpy))
 
-                # for i in range(box2d.shape[0]):
-                #     if score[i]>vis_thd:
-                #         img2.draw_box(box_coord=box2d[i], edge_color='r')
+                    # for i in range(box2d.shape[0]):
+                    #     if score[i]>vis_thd:
+                    #         img2.draw_box(box_coord=box2d[i], edge_color='r')
 
-                # img2 = img2.output.get_image()
-                # cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
-                print(name)
-                #cv2.imwrite('/home/lipengcheng/MonoFlex-llt/test/output_file/7_draw_2d_box'+"_0{}.jpg".format(str(k)),img2)
+                    # img2 = img2.output.get_image()
+                    # cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
+                    print(name)
+                    #cv2.imwrite('/home/lipengcheng/MonoFlex-llt/test/output_file/7_draw_2d_box'+"_0{}.jpg".format(str(k)),img2)
         if compare_gt_det :
             #src_dir = "/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/"
             src_dir = "/nfs/neolix_data1//neolix_dataset/test_dataset/camera_object_detection/image_2/"
@@ -560,7 +563,7 @@ if __name__ == "__main__":
                     cv2.rectangle(img_vis_2d, (int(bb[0]),int(bb[1])), (int(bb[2]),int(bb[3])), (0,0,255), thickness = 2)
                 for bb in annos_gt['bbox']:
                     cv2.rectangle(img_vis_2d, (int(bb[0]),int(bb[1])), (int(bb[2]),int(bb[3])), (0,255,0), thickness = 2)
-
+                
                 cv2.imwrite(save_dir+'/vis_2d/'+name[:-4]+ '.jpg' ,img_vis_2d)
                 # img_numpy =img_numpy[...,[2,1,0]]
                 # img2 = Visualizer(np.array(img_numpy))
