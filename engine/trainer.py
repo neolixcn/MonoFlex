@@ -100,15 +100,27 @@ def do_train(
 		eval_iteration = 0
 		record_metrics = ['Car_bev_', 'Car_3d_']
 	
+
 	for data, iteration in zip(data_loader, range(start_iter, max_iter)):
 		data_time = time.time() - end
-
+		model.train()
 		images = data["images"].to(device)
 		targets = [target.to(device) for target in data["targets"]]
-
 		loss_dict, log_loss_dict = model(images, targets)
-		losses = sum(loss for loss in loss_dict.values())
-
+		#result_dict, result_str, dis_ious = do_eval(cfg, model, data_loaders_val, iteration)
+		weights = [100,100,1,1,1,1,1,1,1,1,1]
+		losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		# cur_epoch = iteration // arguments["iter_per_epoch"]
+		# if cur_epoch >60:
+		# 	weights = [3,3,1,1,3,3,1,1,1,1,1]
+		# 	losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		# elif cur_epoch >45:
+		# 	weights = [3,1,1,1,1,1,1,1,1,1,1]
+		# 	losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		# else:
+		# 	losses = sum(loss for loss in loss_dict.values())
+		#losses = sum(loss for loss in loss_dict.values())
+		
 		# reduce losses over all GPUs for logging purposes
 		log_losses_reduced = sum(loss for key, loss in log_loss_dict.items() if key.find('loss') >= 0)
 		meters.update(loss=log_losses_reduced, **log_loss_dict)
@@ -161,10 +173,15 @@ def do_train(
 					lr=optimizer.param_groups[0]["lr"],
 				)
 			)
-
+		
+		
 		if iteration % cfg.SOLVER.SAVE_CHECKPOINT_INTERVAL == 0:
 			logger.info('iteration = {}, saving checkpoint ...'.format(iteration))
+			cur_epoch = iteration // arguments["iter_per_epoch"]
+			
 			if comm.get_rank() == 0:
+				if cur_epoch >=60 and cur_epoch%2 ==0:
+					checkpointer.save("model_checkpoint_epoch_{}".format(str(cur_epoch)), **arguments)
 				checkpointer.save("model_checkpoint", **arguments)
 			
 		if iteration == max_iter and comm.get_rank() == 0:
@@ -176,10 +193,9 @@ def do_train(
 				logger.info('epoch = {}, evaluate model on validation set with depth {}'.format(cur_epoch, default_depth_method))
 			else:
 				logger.info('iteration = {}, evaluate model on validation set with depth {}'.format(iteration, default_depth_method))
-			
 			result_dict, result_str, dis_ious = do_eval(cfg, model, data_loaders_val, iteration)
-			
 			if comm.get_rank() == 0:
+				
 				# only record more accurate R40 results
 				result_dict = result_dict[0]
 				if len(result_dict) > 0:
@@ -194,7 +210,9 @@ def do_train(
 
 				# record the best model according to the AP_3D, Car, Moderate, IoU=0.7
 				important_key = '{}_3d_{:.2f}/moderate'.format('Car', 0.7)
-				eval_mAP = float(result_dict[important_key])
+				important_key_cyclist = '{}_3d_{:.2f}/moderate'.format('Cyclist', 0.5)
+				important_key_pedestrain = '{}_3d_{:.2f}/moderate'.format('Pedestrian', 0.5)
+				eval_mAP = float(result_dict[important_key])+float(result_dict[important_key_cyclist]) +float(result_dict[important_key_pedestrain])
 				if eval_mAP >= best_mAP:
 					# save best mAP and corresponding iterations
 					best_mAP = eval_mAP

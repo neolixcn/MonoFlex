@@ -18,6 +18,7 @@ def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, v
                         eval_score_iou=False, eval_depth=False, eval_trunc_recall=False):
     
     model.eval()
+    #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/dla34_randomcrop.pth")
     cpu_device = torch.device("cpu")
     dis_ious = defaultdict(list)
     depth_errors = defaultdict(list)
@@ -48,7 +49,7 @@ def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, v
                 for key in dis_iou: dis_ious[key] += dis_iou[key].tolist()
             
             if vis: show_image_with_boxes(vis_target.get_field('ori_img'), output, vis_target, 
-                                    visualize_preds, image_ids,vis_scores=eval_utils['vis_scores'])
+                                    visualize_preds,image_ids,vis_scores=eval_utils['vis_scores'] )
 
             # generate txt files for predicted objects
             predict_txt = image_ids[0] + '.txt'
@@ -113,18 +114,18 @@ def inference(
     logger.info('Finishing generating predictions, start evaluating ...')
     ret_dicts = []
     
-    # for metric in metrics:
-    #     result, ret_dict = evaluate_python(label_path=dataset.label_dir, 
-    #                                     result_path=predict_folder,
-    #                                     label_split_file=dataset.imageset_txt,
-    #                                     current_class=dataset.classes,
-    #                                     metric=metric)
+    for metric in metrics:
+        result, ret_dict = evaluate_python(label_path=dataset.label_dir, 
+                                        result_path=predict_folder,
+                                        label_split_file=dataset.imageset_txt,
+                                        current_class=dataset.classes,
+                                        metric=metric)
 
-    #     logger.info('metric = {}'.format(metric))
-    #     logger.info('\n' + result)
+        logger.info('metric = {}'.format(metric))
+        logger.info('\n' + result)
 
-    #     ret_dicts.append(ret_dict)
-    result =[]
+        ret_dicts.append(ret_dict)
+
     return ret_dicts, result, dis_ious
 
 def inference_all_depths(

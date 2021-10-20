@@ -100,6 +100,7 @@ class PostProcessor(nn.Module):
 
 		# thresholding with score
 		scores = scores.view(-1)
+		
 		valid_mask = scores >= self.det_threshold
 
 		# no valid predictions

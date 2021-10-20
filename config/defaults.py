@@ -7,7 +7,6 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 _C.MODEL = CN()
-_C.MODEL.SMOKE_ON = True
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.WEIGHT = ""
 _C.MODEL.PRETRAIN = True
@@ -58,7 +57,7 @@ _C.INPUT.ORIENTATION_BIN_SIZE = 4 # multi-bin
 
 # aug parameters, in fact only random horizontal flip is applied
 _C.INPUT.AUG_PARAMS = [[0.5]]
-
+_C.INPUT.VAL_PARAMS = [[0,0]]
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
@@ -80,12 +79,12 @@ _C.DATASETS.FILTER_ANNOS = [0.9, 20]
 _C.DATASETS.USE_RIGHT_IMAGE = False
 _C.DATASETS.CONSIDER_OUTSIDE_OBJS = False
 
-_C.DATASETS.MAX_OBJECTS = 40
+_C.DATASETS.MAX_OBJECTS = 50
 
 _C.DATASETS.MIN_RADIUS = 0.0
 _C.DATASETS.MAX_RADIUS = 0.0
 _C.DATASETS.CENTER_RADIUS_RATIO = 0.1
-_C.DATASETS.YAML_NAME = "front_3mm_intrinsics.yaml"
+
 
 # -----------------------------------------------------------------------------
 # DataLoader
@@ -100,14 +99,15 @@ _C.DATALOADER.SIZE_DIVISIBILITY = 0
 # is compatible. This groups portrait images together, and landscape images
 # are not batched with portrait images.
 _C.DATALOADER.ASPECT_RATIO_GROUPING = False
-
+# add unbalance data weight sampling 
+_C.DATALOADER.WEIGHT_SAMPLE = False 
 # ---------------------------------------------------------------------------- #
 # Backbone options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.BACKBONE = CN()
 # The backbone conv body to use
 # The string must match a function that is imported in modeling.model_builder
-_C.MODEL.BACKBONE.CONV_BODY = "dla34"
+_C.MODEL.BACKBONE.CONV_BODY = "dla34"#
 
 # Add StopGrad at a specified stage so the bottom layers are frozen
 _C.MODEL.BACKBONE.FREEZE_CONV_BODY_AT = 0
@@ -170,10 +170,11 @@ _C.MODEL.HEAD.CORNER_LOSS_DEPTH = 'direct'
 
 _C.MODEL.HEAD.KEYPOINT_XY_WEIGHT = [1, 1]
 _C.MODEL.HEAD.DEPTH_FROM_KEYPOINT = False
-_C.MODEL.HEAD.DEPTH_REFERENCE = (26.494627, 16.05988)
+_C.MODEL.HEAD.KEYPOINT_TO_DEPTH_RELU = True
 
 _C.MODEL.HEAD.DEPTH_MODE = 'exp' # or linear
 _C.MODEL.HEAD.DEPTH_RANGE = [0.1, 100]
+_C.MODEL.HEAD.DEPTH_REFERENCE = (26.494627, 16.05988)
 
 _C.MODEL.HEAD.SUPERVISE_CORNER_DEPTH = False
 _C.MODEL.HEAD.REGRESSION_OFFSET_STAT = [-0.5844396972302358, 9.075032501413093]
@@ -192,13 +193,9 @@ _C.MODEL.HEAD.REGRESSION_AREA = False
 _C.MODEL.HEAD.ENABLE_EDGE_FUSION = False
 _C.MODEL.HEAD.EDGE_FUSION_KERNEL_SIZE = 3
 _C.MODEL.HEAD.EDGE_FUSION_NORM = 'BN'
-_C.MODEL.HEAD.EDGE_FUSION_BEFORE_HEAD = False
-_C.MODEL.HEAD.EDGE_FUSION_BEFORE_RELU = False
 _C.MODEL.HEAD.EDGE_FUSION_RELU = False
 
 _C.MODEL.HEAD.TRUNCATION_OFFSET_LOSS = 'L1'
-_C.MODEL.HEAD.TRUNCATION_CLS_RELU = False
-_C.MODEL.HEAD.TRUNCATION_OFFSET_RELU = False
 _C.MODEL.HEAD.TRUNCATION_OUTPUT_FUSION = 'replace'
 
 _C.MODEL.HEAD.TRUNCATION_CLS = False
@@ -206,16 +203,34 @@ _C.MODEL.HEAD.OUTPUT_DEPTH = 'direct'
 
 
 # Reference car size in (length, height, width)
-# for (car, pedestrian, cyclist)
-_C.MODEL.HEAD.DIMENSION_MEAN = ((3.8840, 1.5261, 1.6286),
-                               (0.8423, 1.7607, 0.6602),
-                               (1.7635, 1.7372, 0.5968))
+# # for (car, pedestrian, cyclist)
+# _C.MODEL.HEAD.DIMENSION_MEAN = ((3.8840, 1.5261, 1.6286),
+#                                (0.8423, 1.7607, 0.6602),
+#                                (1.7635, 1.7372, 0.5968))
+
+# # since only car and pedestrian have enough samples and are evaluated in KITTI server 
+# _C.MODEL.HEAD.DIMENSION_STD = ((0.4259, 0.1367, 0.1022),
+# 								(0.2349, 0.1133, 0.1427),
+# 								(0.1766, 0.0948, 0.1242))
+# for waymo kitti 3d box prior 
+# _C.MODEL.HEAD.DIMENSION_MEAN = ((4.83899871 ,1.80778956, 2.11565798),
+#                                (0.91986743 ,1.75302337, 0.86220807),
+#                                (1.78652745 ,1.76500989, 0.83395625))
+
+# # since only car and pedestrian have enough samples and are evaluated in KITTI server 
+# _C.MODEL.HEAD.DIMENSION_STD = ((1.25442242, 0.43771471, 0.29804158),
+# 								(0.19319452, 0.19077312, 0.15295986),
+# 								(0.29947595, 0.19646908, 0.11966296))
+
+# statistic for nuscense_kitti
+_C.MODEL.HEAD.DIMENSION_MEAN = ((4.48691531, 1.69371458, 1.89324371),
+                               (0.74123186, 1.7824049,  0.67358252),
+                               (1.88787143, 1.49576667, 0.68345238))
 
 # since only car and pedestrian have enough samples and are evaluated in KITTI server 
-_C.MODEL.HEAD.DIMENSION_STD = ((0.4259, 0.1367, 0.1022),
-								(0.2349, 0.1133, 0.1427),
-								(0.1766, 0.0948, 0.1242))
-
+_C.MODEL.HEAD.DIMENSION_STD = ((0.54627051, 0.2492792,  0.21507126),
+								(0.19290356, 0.17555028, 0.1413046 ),
+								(0.324226,   0.31525706, 0.17458241))
 # linear or log ; use mean or not ; use std or not
 _C.MODEL.HEAD.DIMENSION_REG = ['linear', True, False]
 # dimension weight for h, w, l, we expect the weight of height to be larger ?
@@ -278,14 +293,7 @@ _C.SOLVER.WARMUP_EPOCH = 1
 _C.SOLVER.WARMUP_STEPS = -1
 
 # grad clip, not used
-_C.SOLVER.GRAD_NORM_CLIP = 9999
-
-# ReduceLROnPlateau
-_C.SOLVER.PLATEAU_PARAMS = ['mode', 'factor', 'patience', 'threshold', 'threshold_mode']
-_C.SOLVER.PLATEAU_PARAM_VALUES = ['max', 0.5, 4, 0.5, 'abs']
-
-# ExponentialLR
-_C.SOLVER.EXP_GAMMA = 0.9
+_C.SOLVER.GRAD_NORM_CLIP = -1
 
 _C.SOLVER.SAVE_CHECKPOINT_INTERVAL = 1000
 _C.SOLVER.EVAL_INTERVAL = 2000

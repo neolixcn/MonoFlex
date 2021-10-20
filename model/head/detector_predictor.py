@@ -7,12 +7,12 @@ import numpy as np
 from torch import nn
 from torch.nn import functional as F
 
-from utils.registry import Registry
+#from utils.registry import Registry
 from model import registry
 from model.layers.utils import sigmoid_hm
 from model.make_layers import group_norm, _fill_fc_weights
-from model.layers.utils import select_point_of_interest
-from model.backbone.DCNv2.dcn_v2 import DCNv2
+#from model.layers.utils import select_point_of_interest
+#from model.backbone.DCNv2.dcn_v2 import DCNv2
 
 from inplace_abn import InPlaceABN
 
@@ -123,6 +123,7 @@ class _predictor(nn.Module):
 
         # output classification
         feature_cls = self.class_head[:-1](features)
+        
         output_cls = self.class_head[-1](feature_cls)
 
         output_regs = []

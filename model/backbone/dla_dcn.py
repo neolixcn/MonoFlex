@@ -13,20 +13,19 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
-from model.backbone.DCNv2.dcn_v2 import DCN
-# for converting onnx
-# from model.backbone.DCNv2.modules.deform_conv import ModulatedDeformConvPack as DCN
-
+#from model.backbone.DCNv2.dcn_v2 import DCN
+#from model.backbone.HGFilters import HGFilter
 BN_MOMENTUM = 0.1
 
 def build_backbone(cfg):
-
-    model = DLASeg(base_name=cfg.MODEL.BACKBONE.CONV_BODY,
-                pretrained=cfg.MODEL.PRETRAIN,
-                down_ratio=cfg.MODEL.BACKBONE.DOWN_RATIO,
-                last_level=5,
-            )
-    
+    if cfg is not None :
+        model = DLASeg(base_name=cfg.MODEL.BACKBONE.CONV_BODY,
+                    pretrained=cfg.MODEL.PRETRAIN,
+                    down_ratio=cfg.MODEL.BACKBONE.DOWN_RATIO,
+                    last_level=5,
+                )
+    # else:
+    #     model = HGFilter()
     return model
 
 class DLASeg(nn.Module):
@@ -50,13 +49,14 @@ class DLASeg(nn.Module):
     def forward(self, x):
         # x: list of features with stride = 1, 2, 4, 8, 16, 32
         x = self.base(x)
+        
         x = self.dla_up(x)
-
+        
         y = []
         for i in range(self.last_level - self.first_level):
             y.append(x[i].clone())
         self.ida_up(y, 0, len(y))
-
+        
         return y[-1]
 
 def get_model_url(data='imagenet', name='dla34', hash='ba72cf86'):
@@ -335,7 +335,7 @@ class DLA(nn.Module):
     def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'):
         # fc = self.fc
         if name.endswith('.pth'):
-            model_weights = torch.load(data + name)
+            model_weights = torch.load('/root/code/MonoFlex/dla34-ba72cf86.pth')
         else:
             model_url = get_model_url(data, name, hash)
             model_weights = model_zoo.load_url(model_url)
@@ -351,7 +351,7 @@ def dla34(pretrained=True, **kwargs):  # DLA-34
                 [16, 32, 64, 128, 256, 512],
                 block=BasicBlock, **kwargs)
     if pretrained:
-        model.load_pretrained_model(data='imagenet', name='dla34', hash='ba72cf86')
+        model.load_pretrained_model(data='imagenet', name='dla34.pth', hash='ba72cf86')
     
     return model
 
@@ -390,8 +390,8 @@ class DeformConv(nn.Module):
             nn.BatchNorm2d(cho, momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True)
         )
-        self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
-
+        #self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
+        self.conv = nn.Conv2d(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1)
     def forward(self, x):
         x = self.conv(x)
         x = self.actf(x)
@@ -410,7 +410,7 @@ class IDAUp(nn.Module):
      
             up = nn.ConvTranspose2d(o, o, f * 2, stride=f, 
                                     padding=f // 2, output_padding=0,
-                                    groups=o, bias=False)
+                                    groups=1, bias=False)
             fill_up_weights(up)
 
             setattr(self, 'proj_' + str(i), proj)
@@ -466,7 +466,7 @@ class Interpolate(nn.Module):
 
 if __name__ == '__main__':
     model = build_backbone(num_layers=34).cuda()
-    x = torch.rand(2, 3, 384, 1280).cuda()
+    x = torch.rand(2, 3, 720, 1280).cuda()
     y = model(x)
 
     print(y.shape)

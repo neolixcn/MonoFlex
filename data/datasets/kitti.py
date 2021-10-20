@@ -3,12 +3,13 @@ import csv
 import logging
 import random
 import pdb
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import Dataset
-
+from transforms import random_distort
 import matplotlib.pyplot as plt
 
 from model.heatmap_coder import (
@@ -19,10 +20,8 @@ from model.heatmap_coder import (
 	draw_umich_gaussian_2D,
 )
 
-import cv2
-
 from structures.params_3d import ParamsList
-from data.augmentations import get_composed_augmentations
+from data.augmentations import get_composed_augmentations,get_composed_augmentations_val
 from .kitti_utils import Calibration, read_label, approx_proj_center, refresh_attributes, show_heatmap, show_image_with_boxes, show_edge_heatmap
 
 from config import TYPE_ID_CONVERSION
@@ -35,22 +34,69 @@ class KITTIDataset(Dataset):
 		self.image_right_dir = os.path.join(root, "image_3")
 		self.label_dir = os.path.join(root, "label_2")
 		self.calib_dir = os.path.join(root, "calib")
-		self.yaml_path = cfg.DATASETS.YAML_NAME 
 
 		self.split = cfg.DATASETS.TRAIN_SPLIT if is_train else cfg.DATASETS.TEST_SPLIT
 		self.is_train = is_train
 		self.transforms = transforms
-		self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format(self.split))
-		assert os.path.exists(self.imageset_txt), "ImageSets file not exist, dir = {}".format(self.imageset_txt)
+		self.opendataset = 'nuscenes' #'waymo'#'nuscenes'
+		if self.is_train :
+			self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format(self.split))
+		else:
+			if self.split == "test":
+				self.imageset_txt = os.path.join(root, "ImageSets", "{}.txt".format('test'))
+			else:
+				if self.opendataset == 'kitti' or self.split =='val':
+					self.imageset_txt = os.path.join('/root/data/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training', "ImageSets", "{}_7000.txt".format(self.split))
+				else:
+					self.imageset_txt = os.path.join(self.root,"ImageSets", 'waymo_kitti_{}_label.txt'.format(self.split))
+		print(self.imageset_txt)
+		#assert os.path.exists(self.imageset_txt), "ImageSets file not exist, dir = {}".format(self.imageset_txt)
 
-		image_files = []
-		for line in open(self.imageset_txt, "r"):
-			base_name = line.replace("\n", "")
-			image_name = base_name + ".png"
-			image_files.append(image_name)
 
-		self.image_files = image_files
-		self.label_files = [i.replace(".png", ".txt") for i in self.image_files]
+
+		######################### mix kitti and nuscenes data ####################################################
+		if self.split =='train' and self.opendataset!= 'kitti':
+			
+			image_files = []
+			imageset_txt_path = os.path.join(self.root,"ImageSets", '{}_kitti_{}_img.txt'.format(self.opendataset,self.split))
+			for line in open(imageset_txt_path, "r"):
+				base_name = line.replace("\n", "")
+				image_files.append(base_name)
+			self.image_files = image_files
+
+			label_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_kitti_{}_label.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				label_files.append(base_name)
+			self.label_files = label_files
+
+			calib_files = []
+			label_files_path = os.path.join(self.root,"ImageSets", '{}_kitti_{}_calib.txt'.format(self.opendataset,self.split))
+			for line in open(label_files_path, "r"):
+				base_name = line.replace("\n", "")
+				calib_files.append(base_name)
+			self.calib_files = calib_files
+		else:
+			image_files = []
+			for line in open(self.imageset_txt, "r"):
+				base_name = line.replace("\n", "")
+				image_name = base_name + ".png"
+				image_files.append(image_name)
+			self.root ="/root/data/OpenSource_dataset/lidar_object_detection/Kitti/kitti/training"
+			self.image_dir = os.path.join(self.root, "image_2")
+			self.label_dir = os.path.join(self.root, "label_2")
+			self.calib_dir = os.path.join(self.root, "calib")
+			self.image_files = image_files
+			self.label_files = [i.replace(".png", ".txt") for i in self.image_files]
+
+		##########################################################################################################
+
+		# if self.split == "test":
+		# 	self.image_dir = "/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/"
+		# 	self.label_files = ["front_3mm_intrinsics.txt" for i in self.image_files]
+		# 	self.calib_dir = "/home/lipengcheng/data/neolix/calib/"
+			
 		self.classes = cfg.DATASETS.DETECT_CLASSES
 		self.num_classes = len(self.classes)
 		self.num_samples = len(self.image_files)
@@ -59,7 +105,7 @@ class KITTIDataset(Dataset):
 		self.use_right_img = cfg.DATASETS.USE_RIGHT_IMAGE & is_train
 
 		self.augmentation = get_composed_augmentations() if (self.is_train and augment) else None
-
+		self.augmentation_val = get_composed_augmentations_val() if not self.is_train else None
 		# input and output shapes
 		self.input_width = cfg.INPUT.WIDTH_TRAIN
 		self.input_height = cfg.INPUT.HEIGHT_TRAIN
@@ -107,23 +153,37 @@ class KITTIDataset(Dataset):
 			return self.num_samples
 
 	def get_image(self, idx):
-		img_filename = os.path.join(self.image_dir, self.image_files[idx])
+		if self.opendataset == 'kitti' or self.split =='val':
+			img_filename = os.path.join(self.image_dir, self.image_files[idx])
+		else:
+			img_filename =  self.image_files[idx]
+		img_filename = img_filename.replace('/nfs/neolix_data1','/root/data')
 		img = Image.open(img_filename).convert('RGB')
 		return img
 
 	def get_right_image(self, idx):
-		img_filename = os.path.join(self.image_right_dir, self.image_files[idx])
+		#img_filename = os.path.join(self.image_right_dir, self.image_files[idx])
+		img_filename =  self.image_files[idx]
+		img_filename = img_filename.replace('/nfs/neolix_data1','/root/data')
 		img = Image.open(img_filename).convert('RGB')
 		return img
 
 	def get_calibration(self, idx, use_right_cam=False):
-		#calib_filename = os.path.join(self.calib_dir, self.label_files[idx])
-		calib_filename = os.path.join(self.calib_dir, self.yaml_path)
+		if self.opendataset == 'kitti'or self.split =='val':
+			calib_filename = os.path.join(self.calib_dir, self.label_files[idx])
+		else:
+			calib_filename = self.calib_files[idx]
+		calib_filename = calib_filename.replace('/nfs/neolix_data1','/root/data')
 		return Calibration(calib_filename, use_right_cam=use_right_cam)
 
 	def get_label_objects(self, idx):
 		if self.split != 'test':
-			label_filename = os.path.join(self.label_dir, self.label_files[idx])
+			if self.opendataset == 'kitti' or self.split =='val':
+				label_filename = os.path.join(self.label_dir, self.label_files[idx])
+			else:
+				label_filename = self.label_files[idx]
+			label_filename = label_filename.replace('/nfs/neolix_data1','/root/data')
+			#label_filename = os.path.join(self.label_dir, self.label_files[idx])
 		
 		return read_label(label_filename)
 
@@ -238,7 +298,7 @@ class KITTIDataset(Dataset):
 			idx = idx % self.num_samples
 			img = self.get_right_image(idx)
 			calib = self.get_calibration(idx, use_right_cam=True)
-			objs = [] if self.split == 'test' else self.get_label_objects(idx)
+			objs = None if self.split == 'test' else self.get_label_objects(idx)
 
 			use_right_img = True
 			# generate the bboxes for right color image
@@ -256,95 +316,28 @@ class KITTIDataset(Dataset):
 			objs = right_objs
 		else:
 			# utilize left color image
+			
 			img = self.get_image(idx)
+			if self.is_train :
+				img = random_distort(img) # add image color noise 
 			calib = self.get_calibration(idx)
 			objs = [] if self.split == 'test' else self.get_label_objects(idx)
-
+			
 			use_right_img = False
-
-		original_idx = self.image_files[idx][:6]
+		
+		original_idx = self.image_files[idx].split('/')[-1][:-4]
+		# print("  original_idx :  ",self.label_files[idx],"size :", len(objs))
 		objs = self.filtrate_objects(objs) # remove objects of irrelevant classes
-		 
+		# cv2.imwrite("/home/lipengcheng/results/kitti_test/original_{}".format(str(original_idx)),np.array(img))
 		# random horizontal flip
-		if self.augmentation is not None:
+		if self.augmentation is not None and self.is_train:
 			img, objs, calib = self.augmentation(img, objs, calib)
-
-		from skimage import transform as trans
-
-		def get_transfrom_matrix(center_scale, output_size):
-			center, scale = center_scale[0], center_scale[1]
-			# todo: further add rot and shift here.
-			src_w = scale[0]
-			dst_w = output_size[0]
-			dst_h = output_size[1]
-
-			src_dir = np.array([0, src_w * -0.5])
-			dst_dir = np.array([0, dst_w * -0.5])
-
-			src = np.zeros((3, 2), dtype=np.float32)
-			dst = np.zeros((3, 2), dtype=np.float32)
-			src[0, :] = center
-			src[1, :] = center + src_dir
-			dst[0, :] = np.array([dst_w * 0.5, dst_h * 0.5])
-			dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5]) + dst_dir
-
-			src[2, :] = get_3rd_point(src[0, :], src[1, :])
-			dst[2, :] = get_3rd_point(dst[0, :], dst[1, :])
-
-			affine_cv = cv2.getAffineTransform(src,dst)
-            #img=  cv2.warpAffine(img, M, (cols, rows))
-			get_matrix = trans.estimate_transform("affine", src, dst)
-			matrix = get_matrix.params
-
-			return matrix.astype(np.float32),affine_cv
-
-		def affine_transform(point, matrix):
-			point_exd = np.array([point[0], point[1], 1.])
-			new_point = np.matmul(matrix, point_exd)
-
-			return new_point[:2]
-
-		def get_3rd_point(point_a, point_b):
-			d = point_a - point_b
-			point_c = point_b + np.array([-d[1], d[0]])
-			return point_c
-
-		center = np.array([i / 2 for i in img.size], dtype=np.float32)
-		size = np.array([i for i in img.size], dtype=np.float32)
-
-		"""
-        resize, horizontal flip, and affine augmentation are performed here.
-        since it is complicated to compute heatmap w.r.t transform.
-        """
-		center_size = [center, size]
-		trans_affine,affine_opencv = get_transfrom_matrix(
-			center_size,
-			[self.input_width, self.input_height]
-		)
-		img =cv2.warpAffine(np.array(img), affine_opencv, (self.input_width, self.input_height))
-		#cv2.imwrite("/home/lipengcheng/results/neolix_test/affine_opencv.png",im2)
-		# compute cx cy: origin cx,cy 不一定为中心点 拿K里面的那个
-		# new cx cy 原始中心点在新affine变换后的位置
-		# fx fy: height 变换了 fx * origin width = fxnew * new width
-		# fy 1)是否为fx fy等比例变换 2)拿到affine变换后四个角点，在逆回原图 知道一一对应地方，求fy is ok
-		# trans_affine_inv = np.linalg.inv(trans_affine)
-		# img = img.transform(
-		# 	(self.input_width, self.input_height),
-		# 	method=Image.AFFINE,
-		# 	data=trans_affine_inv.flatten()[:6],
-		# 	resample=Image.BILINEAR,
-		# )
-
-		calib.matAndUpdate(trans_affine)
-
-		img = np.array(img)
-		#img = cv2.resize(img, (self.input_width, self.input_height), interpolation=cv2.INTER_NEAREST)
-		#cv2.imwrite("/home/lipengcheng/results/neolix_test/affine.png",img)
-		print("down sample: ", self.down_ratio)
+		if self.augmentation_val is not None:
+			img, objs, calib = self.augmentation_val(img, objs, calib)
+		
 		# pad image
-		img_before_aug_pad = img.copy()
-
-		img_w, img_h = img.shape[1], img.shape[0]
+		img_before_aug_pad = np.array(img).copy()
+		img_w, img_h = img.size
 		img, pad_size = self.pad_image(img)
 		# for training visualize, use the padded images
 		ori_img = np.array(img).copy() if self.is_train else img_before_aug_pad
@@ -411,7 +404,10 @@ class KITTIDataset(Dataset):
 
 		for i, obj in enumerate(objs):
 			cls = obj.type
-			cls_id = TYPE_ID_CONVERSION[cls]
+			if cls == 'Pedestrian'or cls == 'Car' or cls =='Cyclist':
+				cls_id = TYPE_ID_CONVERSION[cls]
+			else:
+				cls_id = -1
 			if cls_id < 0: continue
 
 			# TYPE_ID_CONVERSION = {
@@ -445,7 +441,18 @@ class KITTIDataset(Dataset):
 				box2d = projected_box2d.copy()
 			else:
 				box2d = obj.box2d.copy()
+			# box2d = obj.box2d.copy()
+			# box2d[...,[0,2]] = np.clip(box2d[...,[0,2]], 0, img_w-1)
+			# box2d[...,[1,3]] = np.clip(box2d[...,[1,3]], 0, img_h-1)
 
+			# box2d = box2d.astype(np.int)
+			# projected_box2d = projected_box2d.astype(np.int)
+			#print(box2d)
+			#print(projected_box2d)
+			# cv2.rectangle(ori_img, (box2d[0],box2d[1]), (box2d[2],box2d[3]), (0,0,255), thickness = 2)
+			# cv2.rectangle(ori_img, (projected_box2d[0],projected_box2d[1]), (projected_box2d[2],projected_box2d[3]), (0,255,0), thickness = 2)
+			
+			gt_bboxes[i] = obj.box2d.copy() # for visualization
 			# filter some unreasonable annotations
 			if self.filter_annos:
 				if float_truncation >= self.filter_params[0] and (box2d[2:] - box2d[:2]).min() <= self.filter_params[1]: continue
@@ -536,6 +543,8 @@ class KITTIDataset(Dataset):
 				else:
 					# for inside objects, generate circular heatmap
 					radius = gaussian_radius(bbox_dim[1], bbox_dim[0])
+					# if cls_id ==1 or cls_id==2 :
+					# 	radius = 2 * radius
 					radius = max(0, int(radius))
 					heat_map[cls_id] = draw_umich_gaussian(heat_map[cls_id], target_center, radius)
 
@@ -545,8 +554,8 @@ class KITTIDataset(Dataset):
 				offset_3D[i] = proj_center - target_center
 				
 				# 2D bboxes
-				gt_bboxes[i] = obj.box2d.copy() # for visualization
-				if pred_2D: bboxes[i] = box2d
+				
+				
 
 				# local coordinates for keypoints
 				keypoints[i] = np.concatenate((keypoints_2D - target_center.reshape(1, -1), keypoints_visible[:, np.newaxis]), axis=1)
@@ -558,17 +567,21 @@ class KITTIDataset(Dataset):
 				alphas[i] = alpha
 
 				orientations[i] = self.encode_alpha_multibin(alpha, num_bin=self.multibin_size)
-
+				if pred_2D: 
+					bboxes[i] = box2d
 				reg_mask[i] = 1
-				reg_weight[i] = 1 # all objects are of the same weights (for now)
+				reg_weight[i] = 0.1 if cls_ids[i]== 0 else 0.2 # all objects are of the same weights (for now)
 				trunc_mask[i] = int(approx_center) # whether the center is truncated and therefore approximate
 				occlusions[i] = float_occlusion
 				truncations[i] = float_truncation
 
-		# visualization
+		# # visualization
 		# img3 = show_image_with_boxes(img, cls_ids, target_centers, bboxes.copy(), keypoints, reg_mask, 
 		# 							offset_3D, self.down_ratio, pad_size, orientations, vis=True)
-		# show_heatmap(img, heat_map, index=original_idx)
+		
+		
+		#show_heatmap(img, heat_map, index=original_idx)
+		#cv2.imwrite("/root/data/lpc_model/monoflex_15/tmp/{}.jpg".format(str(original_idx)),img3)
 
 		target = ParamsList(image_size=img.size, is_train=self.is_train) 
 		target.add_field("cls_ids", cls_ids)

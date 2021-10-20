@@ -3,9 +3,12 @@ import random
 import pdb
 import copy
 import numpy as np
-
+import torch
 from PIL import Image, ImageOps
 from data.datasets.kitti_utils import convertRot2Alpha, convertAlpha2Rot, refresh_attributes
+from transforms.box import box_iou
+from model.heatmap_coder import get_transfrom_matrix,affine_transform
+
 
 class Compose(object):
     def __init__(self, augmentations):
@@ -73,5 +76,80 @@ class RandomHorizontallyFlip(object):
             P2[0, 3] = - P2[0, 3]
             calib.P = P2
             refresh_attributes(calib)
+
+        return img, objs, calib
+
+class RandomAffineCrop(object):
+    def __init__(self,shift,scale):
+        self.input_width, self.input_height = 1280, 384
+       
+        self.shift= shift
+        self.scale= scale
+
+    def __call__(self, img, objs, calib):
+        #img.save("/home/lipengcheng/results/kitti_test/ori.png")
+    
+        center = np.array([i / 2 for i in img.size], dtype=np.float32)
+        size = np.array([img.size[0],img.size[1]], dtype=np.float32)
+        shift, scale = self.shift, self.scale
+
+        # center shift along y axis 
+        shift_ranges = np.arange(0, shift + 0.1, 0.1)
+        
+        #center[0] += size[0] * random.choice(shift_ranges)
+        center[1] += size[1] * random.choice(shift_ranges)
+
+        #scale_ranges = np.arange(1 - scale, 1 , 0.1)
+        #size *= random.choice(scale_ranges)
+
+        center_size = [center, size]
+
+        # calculate affine matrix = resize along x axis and crop with random center 
+        trans_affine,affine_cv = get_transfrom_matrix(
+            center_size,
+            [self.input_width, self.input_height]
+        )
+
+        # apply affine transform to image 
+        trans_affine_inv = np.linalg.inv(trans_affine)
+        img = img.transform(
+            (self.input_width, self.input_height),
+            method=Image.AFFINE,
+            data=trans_affine_inv.flatten()[:6],
+            resample=Image.BILINEAR,
+        )
+        #img.save("/home/lipengcheng/results/kitti_test/affine.png")
+
+        # update calibration by affine matrix 
+        calib.matAndUpdate(trans_affine)
+
+        # update image corner coord
+        save_id = []
+        box2d_ori = np.array([center[0]-size[0]//2,center[1]-size[1]//2,center[0]+size[0]//2,center[1]+size[1]//2])
+        box2d_ori[:2] = affine_transform(box2d_ori[:2], trans_affine)
+        box2d_ori[2:] = affine_transform(box2d_ori[2:], trans_affine)
+        roi = torch.Tensor(box2d_ori).view(-1,4)
+        
+        for idx, obj in enumerate(objs):
+            # get affined box2d 
+            box2d = obj.box2d
+            box2d[:2] = affine_transform(box2d[:2], trans_affine)
+            box2d[2:] = affine_transform(box2d[2:], trans_affine)
+            box2d[[0, 2]] = box2d[[0, 2]].clip(0, self.input_width - 1)
+            box2d[[1, 3]] = box2d[[1, 3]].clip(0, self.input_height - 1)
+
+            # cal iou : (intersection bewteen affined box2d and affined image corner )/ ( affined box2d )
+            ious = box_iou(torch.Tensor(box2d).view(-1,4), roi)
+
+            # only save object when iou is plus 0.1 
+            if ious > 0.2 :
+                save_id.append(idx)
+            
+            # update truncation coef 
+            obj.truncation = 1- ious
+            obj.box2d = box2d
+            objs[idx] = obj
+        
+        objs = [objs[id] for id in save_id]
 
         return img, objs, calib
