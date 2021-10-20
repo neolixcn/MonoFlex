@@ -1162,12 +1162,12 @@ def show_image_with_boxes(image, cls_ids, target_center, box2d, corners_2d, reg_
     img2 = img2_vis.output.get_image()
     stacked_img = np.vstack((img2, img3))
 
-    if vis:
-        plt.figure(figsize=(10, 6))
-        plt.imshow(stacked_img)
-        plt.show()
+    # if vis:
+    #     plt.figure(figsize=(10, 6))
+    #     plt.imshow(stacked_img)
+    #     plt.show()
 
-    return img3
+    return stacked_img
 
 def show_edge_heatmap(img, edge_heatmap, interp_edge_indices, output_size):
     # output_size: w, h

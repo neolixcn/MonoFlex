@@ -2,7 +2,8 @@ import pdb
 from data import datasets
 
 from data.datasets.evaluation.kitti.kitti_eval import kitti_evaluation
-from .kitti_object_eval_python.evaluate import evaluate as _evaluate_python
+#from .kitti_object_eval_python.evaluate import evaluate as _evaluate_python
+from .kitti_object_eval_python.evaluate import evaluate_neolix as _evaluate_python
 from .kitti_object_eval_python.evaluate import generate_kitti_3d_detection, check_last_line_break
 
 def evaluate(eval_type, dataset, predictions, output_folder):

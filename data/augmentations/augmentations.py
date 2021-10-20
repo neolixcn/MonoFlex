@@ -21,18 +21,19 @@ class Compose(object):
             self.PIL2Numpy = True
 
         for a in self.augmentations:
-            img, objs, calib = a(img, objs, calib)
+            img, objs, calib,trans_affine_inv = a(img, objs, calib)
 
         if self.PIL2Numpy:
             img = np.array(img)
 
-        return img, objs, calib
+        return img, objs, calib,trans_affine_inv
 
 class RandomHorizontallyFlip(object):
     def __init__(self, p):
         self.p = p
 
     def __call__(self, img, objs, calib):
+        trans_affine_inv = None
         if random.random() < self.p:
             # flip image
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
@@ -77,11 +78,11 @@ class RandomHorizontallyFlip(object):
             calib.P = P2
             refresh_attributes(calib)
 
-        return img, objs, calib
+        return img, objs, calib,trans_affine_inv
 
 class RandomAffineCrop(object):
-    def __init__(self,shift,scale):
-        self.input_width, self.input_height = 1280, 384
+    def __init__(self,width,height,shift,scale):
+        self.input_width, self.input_height = width,height
        
         self.shift= shift
         self.scale= scale
@@ -94,7 +95,7 @@ class RandomAffineCrop(object):
         shift, scale = self.shift, self.scale
 
         # center shift along y axis 
-        shift_ranges = np.arange(0, shift + 0.1, 0.1)
+        shift_ranges = np.arange(0, shift+0.1, 0.1)
         
         #center[0] += size[0] * random.choice(shift_ranges)
         center[1] += size[1] * random.choice(shift_ranges)
@@ -152,4 +153,4 @@ class RandomAffineCrop(object):
         
         objs = [objs[id] for id in save_id]
 
-        return img, objs, calib
+        return img, objs, calib, trans_affine_inv

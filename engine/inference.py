@@ -14,6 +14,24 @@ from data.datasets.evaluation import generate_kitti_3d_detection
 
 from .visualize_infer import show_image_with_boxes, show_image_with_boxes_test
 
+def affine_transform(point, matrix):
+
+	point = point.reshape(-1, 2)
+	point_exd = np.concatenate((point, np.ones((point.shape[0], 1))), axis=1)
+
+	new_point = np.matmul(point_exd, matrix.T)
+
+	return new_point[:, :2].squeeze()
+
+def update2Dbox2OriIm(boxes,trans_affine,input_width,input_height):
+    for i, box2d in enumerate(boxes):
+        boxes[i,:2] = affine_transform(box2d[:2], trans_affine)
+        boxes[i,2:] = affine_transform(box2d[2:], trans_affine)
+        boxes[i,[0, 2]] = boxes[i,[0, 2]].clip(0, input_width - 1)
+        boxes[i,[1, 3]] = boxes[i,[1, 3]].clip(0, input_height - 1)
+    return boxes 
+
+
 def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, vis=False, 
                         eval_score_iou=False, eval_depth=False, eval_trunc_recall=False):
     
@@ -51,6 +69,8 @@ def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, v
             if vis: show_image_with_boxes(vis_target.get_field('ori_img'), output, vis_target, 
                                     visualize_preds,image_ids,vis_scores=eval_utils['vis_scores'] )
 
+            box2d = output[:,2:6].data.cpu().numpy() #targets[0].get_field('2d_bboxes')#[targets[0].get_field('reg_mask').view(-1).bool()]
+            output[:,2:6]= torch.from_numpy(update2Dbox2OriIm(box2d,targets[0].get_field('trans_affine_inv').data.cpu().numpy(),1920,1080))
             # generate txt files for predicted objects
             predict_txt = image_ids[0] + '.txt'
             predict_txt = os.path.join(predict_folder, predict_txt)
@@ -71,7 +91,7 @@ def inference(
         device="cuda",
         output_folder=None,
         metrics=['R40'],
-        vis=False,
+        vis=True,
         eval_score_iou=False,
 ):
     device = torch.device(device)

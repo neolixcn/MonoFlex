@@ -3,7 +3,7 @@ import os
 import pathlib
 import re
 from collections import OrderedDict
-
+from data.datasets.kitti_utils import  read_label
 import numpy as np
 from skimage import io
 
@@ -330,6 +330,38 @@ def get_label_anno(label_path):
     else:
         annotations['score'] = np.zeros([len(annotations['bbox'])])
     return annotations
+
+def get_label_annos_gen(label_folder,det_folder):
+    only_genGT =False
+    annos_det = []
+    annos_gt = []
+    label_filenames = os.listdir(label_folder)
+    label_filenames.sort()
+    
+    filename = []
+    labels =[]
+    labels_det =[]
+    
+    for idx in label_filenames:
+        label_filename_det = os.path.join(det_folder, idx.split('/')[-1])
+        label_filename_gt = os.path.join(label_folder, idx.split('/')[-1])
+        if only_genGT:
+            if os.path.exists(label_filename_gt):
+                label = read_label(label_filename_gt)
+                annos_gt.append(get_label_anno(label_filename_gt))
+                filename.append(idx)
+                labels.append(label)
+        else:
+            if os.path.exists(label_filename_det) and os.path.exists(label_filename_gt):
+                label = read_label(label_filename_gt)
+                label_det = read_label(label_filename_det)
+                annos_gt.append(get_label_anno(label_filename_gt))
+                annos_det.append(get_label_anno(label_filename_det))
+                filename.append(idx)
+                labels.append(label)
+                labels_det.append(label_det)
+
+    return annos_gt,annos_det,filename,labels,labels_det
 
 def get_label_annos(label_folder, image_ids=None):
     if image_ids is None:

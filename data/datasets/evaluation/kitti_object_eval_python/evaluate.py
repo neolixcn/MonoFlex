@@ -20,8 +20,7 @@ def evaluate(label_path,
              score_thresh=-1,
              metric='R40'):
     
-    from .eval import get_coco_eval_result, get_official_eval_result
-    
+    from .eval import get_coco_eval_result, get_official_eval_result,get_neolix_eval_result
     dt_annos = kitti.get_label_annos(result_path)
     if score_thresh > 0:
         dt_annos = kitti.filter_annos_low_score(dt_annos, score_thresh)
@@ -31,6 +30,41 @@ def evaluate(label_path,
         return get_coco_eval_result(gt_annos, dt_annos, current_class)
     else:
         return get_official_eval_result(gt_annos, dt_annos, current_class, metric=metric)
+
+def evaluate_neolix(label_path,
+             result_path,
+             label_split_file,
+             current_class=0,
+             coco=False,
+             score_thresh=-1,
+             metric='R40'):
+    
+    from .eval import get_coco_eval_result, get_official_eval_result,get_neolix_eval_result
+
+    #dt_annos = kitti.get_label_annos(result_path)
+    # if score_thresh > 0:
+    #     dt_annos = kitti.filter_annos_low_score(dt_annos, score_thresh)
+    #val_image_ids = _read_imageset_file(label_split_file)
+    #gt_annos = kitti.get_label_annos(label_path)
+    # if 'kitti' in label_path:
+    #     dt_annos = kitti.get_label_annos(result_path)
+    #     if score_thresh > 0:
+    #         dt_annos = kitti.filter_annos_low_score(dt_annos, score_thresh)
+    #     val_image_ids = _read_imageset_file(label_split_file)
+    #     gt_annos = kitti.get_label_annos(label_path, val_image_ids)
+    # else:
+    #     dt_image_ids = os.listdir(result_path)
+
+    #     dt_annos = kitti.get_label_annos(result_path,dt_image_ids)
+    #     if score_thresh > 0:
+    #         dt_annos = kitti.filter_annos_low_score(dt_annos, score_thresh)
+    #     dt_image_ids =[item.replace(".png","") for item in dt_image_ids]
+    #     gt_annos = kitti.get_label_annos(label_path, dt_image_ids)
+    gt_annos,dt_annos ,filename,labels,label_det = kitti.get_label_annos_gen(label_path,result_path)
+    if coco:
+        return get_coco_eval_result(gt_annos, dt_annos, current_class)
+    else:
+        return get_neolix_eval_result(gt_annos, dt_annos, current_class, metric=metric)
 
 def generate_kitti_3d_detection(prediction, predict_txt):
 

@@ -22,13 +22,13 @@ _C.MODEL.INPLACE_ABN = False
 
 _C.INPUT = CN()
 # Size of the smallest side of the image during training
-_C.INPUT.HEIGHT_TRAIN = 384
+_C.INPUT.HEIGHT_TRAIN = 512
 # Maximum size of the side of the image during training
-_C.INPUT.WIDTH_TRAIN = 1280
+_C.INPUT.WIDTH_TRAIN = 960
 # Size of the smallest side of the image during testing
-_C.INPUT.HEIGHT_TEST = 384
+_C.INPUT.HEIGHT_TEST = 512
 # Maximum size of the side of the image during testing
-_C.INPUT.WIDTH_TEST = 1280
+_C.INPUT.WIDTH_TEST = 960
 
 # Values to be used for image normalization
 _C.INPUT.PIXEL_MEAN = [0.485, 0.456, 0.406]  # kitti
@@ -57,7 +57,7 @@ _C.INPUT.ORIENTATION_BIN_SIZE = 4 # multi-bin
 
 # aug parameters, in fact only random horizontal flip is applied
 _C.INPUT.AUG_PARAMS = [[0.5]]
-_C.INPUT.VAL_PARAMS = [[0,0]]
+_C.INPUT.VAL_PARAMS = [[1280,384,0,0]]
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
@@ -203,7 +203,7 @@ _C.MODEL.HEAD.OUTPUT_DEPTH = 'direct'
 
 
 # Reference car size in (length, height, width)
-# # for (car, pedestrian, cyclist)
+# for (car, pedestrian, cyclist)
 # _C.MODEL.HEAD.DIMENSION_MEAN = ((3.8840, 1.5261, 1.6286),
 #                                (0.8423, 1.7607, 0.6602),
 #                                (1.7635, 1.7372, 0.5968))
@@ -212,8 +212,9 @@ _C.MODEL.HEAD.OUTPUT_DEPTH = 'direct'
 # _C.MODEL.HEAD.DIMENSION_STD = ((0.4259, 0.1367, 0.1022),
 # 								(0.2349, 0.1133, 0.1427),
 # 								(0.1766, 0.0948, 0.1242))
-# for waymo kitti 3d box prior 
-# _C.MODEL.HEAD.DIMENSION_MEAN = ((4.83899871 ,1.80778956, 2.11565798),
+
+# statistic for waymo_kitti
+# _C.MODEL.HEAD.DIMENSION_MEAN = ((4.03899871 ,1.60778956, 2.01565798),
 #                                (0.91986743 ,1.75302337, 0.86220807),
 #                                (1.78652745 ,1.76500989, 0.83395625))
 

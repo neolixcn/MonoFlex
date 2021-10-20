@@ -18,14 +18,14 @@ import torch.utils.model_zoo as model_zoo
 BN_MOMENTUM = 0.1
 
 def build_backbone(cfg):
-    if cfg is not None :
+    if cfg.MODEL.BACKBONE.CONV_BODY == "dla34" :
         model = DLASeg(base_name=cfg.MODEL.BACKBONE.CONV_BODY,
                     pretrained=cfg.MODEL.PRETRAIN,
                     down_ratio=cfg.MODEL.BACKBONE.DOWN_RATIO,
                     last_level=5,
                 )
-    # else:
-    #     model = HGFilter()
+    if cfg.MODEL.BACKBONE.CONV_BODY == "hg" :
+        model = HGFilter()
     return model
 
 class DLASeg(nn.Module):
