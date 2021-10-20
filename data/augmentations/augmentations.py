@@ -88,7 +88,7 @@ class RandomAffineCrop(object):
 
     def __call__(self, img, objs, calib):
         #img.save("/home/lipengcheng/results/kitti_test/ori.png")
-
+    
         center = np.array([i / 2 for i in img.size], dtype=np.float32)
         size = np.array([img.size[0],img.size[1]], dtype=np.float32)
         shift, scale = self.shift, self.scale
@@ -105,7 +105,7 @@ class RandomAffineCrop(object):
         center_size = [center, size]
 
         # calculate affine matrix = resize along x axis and crop with random center 
-        trans_affine = get_transfrom_matrix(
+        trans_affine,affine_cv = get_transfrom_matrix(
             center_size,
             [self.input_width, self.input_height]
         )
@@ -142,7 +142,7 @@ class RandomAffineCrop(object):
             ious = box_iou(torch.Tensor(box2d).view(-1,4), roi)
 
             # only save object when iou is plus 0.1 
-            if ious > 0.1 :
+            if ious > 0.2 :
                 save_id.append(idx)
             
             # update truncation coef 

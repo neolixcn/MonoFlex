@@ -18,6 +18,7 @@ def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, v
                         eval_score_iou=False, eval_depth=False, eval_trunc_recall=False):
     
     model.eval()
+    #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/dla34_randomcrop.pth")
     cpu_device = torch.device("cpu")
     dis_ious = defaultdict(list)
     depth_errors = defaultdict(list)

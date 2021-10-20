@@ -1,6 +1,6 @@
 import numpy as np
 import pdb
-
+import cv2
 from skimage import transform as trans
 
 def get_3rd_point(point_a, point_b):
@@ -28,10 +28,12 @@ def get_transfrom_matrix(center_scale, output_size):
     src[2, :] = get_3rd_point(src[0, :], src[1, :])
     dst[2, :] = get_3rd_point(dst[0, :], dst[1, :])
 
+    affine_cv = cv2.getAffineTransform(src,dst)
+    #img=  cv2.warpAffine(img, M, (cols, rows))
     get_matrix = trans.estimate_transform("affine", src, dst)
     matrix = get_matrix.params
 
-    return matrix.astype(np.float32)
+    return matrix.astype(np.float32),affine_cv
 
 # def get_transfrom_matrix(center_scale, output_size):
 # 	center, scale = center_scale[0], center_scale[1]

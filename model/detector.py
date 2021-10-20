@@ -7,7 +7,7 @@ from .backbone import build_backbone
 from .backbone.resnet import get_resnet
 from .head.detector_head import bulid_head
 
-from model.layers.uncert_wrapper import make_multitask_wrapper
+#from model.layers.uncert_wrapper import make_multitask_wrapper
 
 class KeypointDetector(nn.Module):
     '''

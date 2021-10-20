@@ -1202,17 +1202,18 @@ def show_heatmap(img, heat_map, classes=['Car', 'Pedestrian', 'Cyclist'], index=
         all_heat_img += class_map
 
     # import imageio
-    # imageio.imsave('heatmap_img_{}.png'.format(index), mix_img)
+    # imageio.imsave('/data/lpc_data/test/heatmap_img_{}.png'.format(index), mix_img)
+    # print(index)
 
-    plt.figure(figsize=(10, 6))
-    plt.subplot(311)
-    plt.imshow(img)
-    plt.axis('off')
-    plt.subplot(312)
-    plt.imshow(mix_img)
-    plt.axis('off')
-    plt.subplot(313)
-    plt.imshow(all_heat_img)
-    plt.axis('off')
-    plt.show()
+    # plt.figure(figsize=(10, 6))
+    # plt.subplot(311)
+    # plt.imshow(img)
+    # plt.axis('off')
+    # plt.subplot(312)
+    # plt.imshow(mix_img)
+    # plt.axis('off')
+    # plt.subplot(313)
+    # plt.imshow(all_heat_img)
+    # plt.axis('off')
+    # plt.show()
 

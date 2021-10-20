@@ -16,7 +16,7 @@ class Detect_Head(nn.Module):
 
     def forward(self, features, targets=None, test=False):
         x = self.predictor(features, targets)
-
+        
         if self.training:
             loss_dict, log_loss_dict = self.loss_evaluator(x, targets)
             return loss_dict, log_loss_dict

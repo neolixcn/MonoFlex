@@ -1,7 +1,7 @@
 import time
 import pdb
 import fire
-
+import os 
 from . import kitti_common as kitti
 
 import csv
@@ -9,7 +9,8 @@ import csv
 def _read_imageset_file(path):
     with open(path, 'r') as f:
         lines = f.readlines()
-    return [int(line) for line in lines]
+    return [int(line.split('/')[-1].replace(".txt\n", "")) for line in lines]
+    
 
 def evaluate(label_path,
              result_path,

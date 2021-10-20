@@ -17,7 +17,7 @@ def get_composed_augmentations():
     aug_params = cfg.INPUT.AUG_PARAMS
     augmentations = []
     for aug, aug_param in zip(aug_list, aug_params):
-        if aug_param[0] > 0:
+        if aug_param[0] >=0:
             augmentations.append(aug(*aug_param))
             logger.info("Using {} aug with params {}".format(aug, aug_param))
         

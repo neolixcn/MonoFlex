@@ -7,11 +7,11 @@ DATASETS:
 
   USE_RIGHT_IMAGE: False
   CONSIDER_OUTSIDE_OBJS: True
-  FILTER_ANNO_ENABLE: True
+  FILTER_ANNO_ENABLE: False
   
 INPUT:
   HEATMAP_CENTER: '3D'
-  AUG_PARAMS: [[0.5],[0.2]]
+  AUG_PARAMS: [[0.5],[0.1,0.1]]
 
   ORIENTATION: 'multi-bin'
   MODIFY_ALPHA: False
@@ -27,7 +27,7 @@ MODEL:
     REGRESSION_HEADS: [['2d_dim'], ['3d_offset'], ['corner_offset'], ['corner_uncertainty'], ['3d_dim'], ['ori_cls', 'ori_offset'], ['depth'], ['depth_uncertainty']]
     REGRESSION_CHANNELS: [[4, ], [2, ], [20], [3], [3, ], [8, 8], [1, ], [1, ]]
 
-    ENABLE_EDGE_FUSION: True
+    ENABLE_EDGE_FUSION: False
     TRUNCATION_OUTPUT_FUSION: 'add'
     EDGE_FUSION_NORM: 'BN'
     TRUNCATION_OFFSET_LOSS: 'log'
@@ -43,7 +43,7 @@ MODEL:
     LOSS_NAMES: ['hm_loss', 'bbox_loss', 'depth_loss', 'offset_loss', 'orien_loss', 'dims_loss', 'corner_loss', 'keypoint_loss', 'keypoint_depth_loss', 'trunc_offset_loss', 'weighted_avg_depth_loss']
     LOSS_UNCERTAINTY: [True, True, False, True, True, True, True, True, False, True, True]
     INIT_LOSS_WEIGHT: [1, 1, 1, 0.5, 1, 1, 0.2, 1.0, 0.2, 0.1, 0.2]
-    
+    #INIT_LOSS_WEIGHT: [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     CENTER_MODE: 'max'
     HEATMAP_TYPE: 'centernet'
     DIMENSION_REG: ['exp', True, False]
@@ -59,7 +59,7 @@ MODEL:
   USE_SYNC_BN: True
 
 SOLVER:
-  OPTIMIZER: 'adamw'
+  OPTIMIZER: 'adam'
   BASE_LR: 3e-4
   WEIGHT_DECAY: 1e-5
   LR_WARMUP: False
@@ -71,8 +71,8 @@ SOLVER:
   EVAL_AND_SAVE_EPOCH: True
   EVAL_EPOCH_INTERVAL: 1
   SAVE_CHECKPOINT_EPOCH_INTERVAL: 2
-  MAX_EPOCHS: 90
-  DECAY_EPOCH_STEPS: [55, 70]
+  MAX_EPOCHS: 100
+  DECAY_EPOCH_STEPS: [80, 90]
 
   IMS_PER_BATCH: 16
   EVAL_INTERVAL: 1000
@@ -82,4 +82,4 @@ TEST:
   DETECTIONS_THRESHOLD: 0.2
   METRIC: ['R40']
 
-OUTPUT_DIR: "./output/toy_experiments"
+OUTPUT_DIR: "/root/data/lpc_model/monoflex_17"
