@@ -11,8 +11,8 @@ DATASETS:
   
 INPUT:
   HEATMAP_CENTER: '3D'
-  AUG_PARAMS: [[0.5],[960,512,0,0]]
-  VAL_PARAMS: [[960,512,0,0]]
+  AUG_PARAMS: [[0.5],[1280,384,0.1,0.1,True]]
+  VAL_PARAMS: [[1280,384,0,0,True]]
   ORIENTATION: 'multi-bin'
   MODIFY_ALPHA: False
   ORIENTATION_BIN_SIZE: 4
@@ -23,6 +23,10 @@ INPUT:
 
 MODEL:
   INPLACE_ABN: False
+  NECK:
+    ADD_NECK : False
+    USE_TYPE: 'CBAM'
+    CABM_INPUT : [16,7]
   HEAD:
     REGRESSION_HEADS: [['2d_dim'], ['3d_offset'], ['corner_offset'], ['corner_uncertainty'], ['3d_dim'], ['ori_cls', 'ori_offset'], ['depth'], ['depth_uncertainty']]
     REGRESSION_CHANNELS: [[4, ], [2, ], [20], [3], [3, ], [8, 8], [1, ], [1, ]]
@@ -82,4 +86,4 @@ TEST:
   DETECTIONS_THRESHOLD: 0.2
   METRIC: ['R40']
 
-OUTPUT_DIR: "/root/data/lpc_model/monoflex_18"
+OUTPUT_DIR: "/root/data/lpc_model/monoflex_30"

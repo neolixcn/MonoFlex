@@ -22,13 +22,13 @@ _C.MODEL.INPLACE_ABN = False
 
 _C.INPUT = CN()
 # Size of the smallest side of the image during training
-_C.INPUT.HEIGHT_TRAIN = 512
+_C.INPUT.HEIGHT_TRAIN = 384
 # Maximum size of the side of the image during training
-_C.INPUT.WIDTH_TRAIN = 960
+_C.INPUT.WIDTH_TRAIN = 1280
 # Size of the smallest side of the image during testing
-_C.INPUT.HEIGHT_TEST = 512
+_C.INPUT.HEIGHT_TEST = 384
 # Maximum size of the side of the image during testing
-_C.INPUT.WIDTH_TEST = 960
+_C.INPUT.WIDTH_TEST = 1280
 
 # Values to be used for image normalization
 _C.INPUT.PIXEL_MEAN = [0.485, 0.456, 0.406]  # kitti
@@ -129,6 +129,11 @@ _C.MODEL.GROUP_NORM.EPSILON = 1e-5
 # Heatmap Head options
 # ---------------------------------------------------------------------------- #
 
+
+_C.MODEL.NECK = CN()
+_C.MODEL.NECK.ADD_NECK = False
+_C.MODEL.NECK.USE_TYPE = 'CBAM'
+_C.MODEL.NECK.CABM_INPUT = [16,7]
 # --------------------------SMOKE Head--------------------------------
 _C.MODEL.HEAD = CN()
 _C.MODEL.HEAD.PREDICTOR = "Base_Predictor"
@@ -223,13 +228,23 @@ _C.MODEL.HEAD.OUTPUT_DEPTH = 'direct'
 # 								(0.19319452, 0.19077312, 0.15295986),
 # 								(0.29947595, 0.19646908, 0.11966296))
 
+# # statistic for nuscense_kitti
+# _C.MODEL.HEAD.DIMENSION_MEAN = ((4.48691531, 1.69371458, 1.89324371),
+#                                (0.74123186, 1.7824049,  0.67358252),
+#                                (1.88787143, 1.49576667, 0.68345238))
+
+# # since only car and pedestrian have enough samples and are evaluated in KITTI server 
+# _C.MODEL.HEAD.DIMENSION_STD = ((0.54627051, 0.2492792,  0.21507126),
+# 								(0.19290356, 0.17555028, 0.1413046 ),
+# 								(0.324226,   0.31525706, 0.17458241))
+
 # statistic for nuscense_kitti
-_C.MODEL.HEAD.DIMENSION_MEAN = ((4.48691531, 1.69371458, 1.89324371),
+_C.MODEL.HEAD.DIMENSION_MEAN = ((4.48691531, 1.5728097 , 1.89324371),
                                (0.74123186, 1.7824049,  0.67358252),
                                (1.88787143, 1.49576667, 0.68345238))
 
 # since only car and pedestrian have enough samples and are evaluated in KITTI server 
-_C.MODEL.HEAD.DIMENSION_STD = ((0.54627051, 0.2492792,  0.21507126),
+_C.MODEL.HEAD.DIMENSION_STD = ((0.54627051, 0.21430591,  0.21507126),
 								(0.19290356, 0.17555028, 0.1413046 ),
 								(0.324226,   0.31525706, 0.17458241))
 # linear or log ; use mean or not ; use std or not
@@ -270,7 +285,7 @@ _C.MODEL.HEAD.CENTER_MODE = 'max'
 # Solver
 # ---------------------------------------------------------------------------- #
 _C.SOLVER = CN()
-_C.SOLVER.OPTIMIZER = "adamw"
+_C.SOLVER.OPTIMIZER = "adam"
 _C.SOLVER.BASE_LR = 3e-3
 _C.SOLVER.WEIGHT_DECAY = 1e-5
 _C.SOLVER.MAX_ITERATION = 30000 # total steps in iterations

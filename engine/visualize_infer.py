@@ -250,7 +250,7 @@ def show_image_with_boxes(image, output, target, visualize_preds, image_ids, vis
 	stack_img = np.concatenate([stack_img, heat_mixed], axis=1)
 
 
-	new_save_path = "/data/lpc_data/test/vis_tmp/"# "/home/lipengcheng/results/neolix_test"
+	new_save_path = "/root/data/lpc_model/neolix_test/tmp/"# "/home/lipengcheng/results/neolix_test"
 	if not os.path.exists(new_save_path):
 		os.makedirs(new_save_path)
 

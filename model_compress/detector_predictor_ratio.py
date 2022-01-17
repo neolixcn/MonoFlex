@@ -26,12 +26,12 @@ PI = np.pi
 import pdb
 
 class postprcess(nn.Module):
-    def __init__(self,cfg):
+    def __init__(self,cfg,input_width,input_height):
         super(postprcess, self).__init__()
         self.regression_head_cfg = [['2d_dim'], ['3d_offset'], ['corner_offset'], ['corner_uncertainty'], ['3d_dim'], ['ori_cls', 'ori_offset'], ['depth'], ['depth_uncertainty']]
         self.regression_channel_cfg = [[4, ], [2, ], [20], [3], [3, ], [8, 8], [1, ], [1, ]]
-        self.input_width = 1280
-        self.input_height = 704
+        self.input_width = input_width
+        self.input_height = input_height
         self.down_ratio = 4
         self.output_width = self.input_width  // self.down_ratio
         self.output_height = self.input_height // self.down_ratio

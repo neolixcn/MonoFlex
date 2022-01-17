@@ -14,7 +14,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 #from model.backbone.DCNv2.dcn_v2 import DCN
-#from model.backbone.HGFilters import HGFilter
+from model.backbone.HGFilters import HGFilter
 BN_MOMENTUM = 0.1
 
 def build_backbone(cfg):

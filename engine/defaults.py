@@ -33,8 +33,8 @@ def default_argument_parser():
         default=None,#'/data/lpc_model/nuscense_0/model_checkpoint_epoch_62.pth',#None,#
     )
     
-    parser.add_argument("--num_gpus", type=int, default=1, help="number of gpu")#4
-    parser.add_argument("--batch_size", type=int, default=4, help="number of batch_size")#48
+    parser.add_argument("--num_gpus", type=int, default=4, help="number of gpu")#4
+    parser.add_argument("--batch_size", type=int, default=48, help="number of batch_size")#48
     parser.add_argument("--num_work", type=int, default=4, help="number of workers for dataloader")#4
     parser.add_argument("--output", type=str, default=None)
 

@@ -6,8 +6,8 @@ from structures.image_list import to_image_list
 from .backbone import build_backbone
 from .backbone.resnet import get_resnet
 from .head.detector_head import bulid_head
-
-#from model.layers.uncert_wrapper import make_multitask_wrapper
+from .neck.detector_neck import build_neck
+from model.layers.uncert_wrapper import make_multitask_wrapper
 
 class KeypointDetector(nn.Module):
     '''
@@ -23,8 +23,18 @@ class KeypointDetector(nn.Module):
             self.backbone = build_backbone(cfg)
         elif cfg.MODEL.BACKBONE.CONV_BODY =="resnet":
             self.backbone = get_resnet(cfg)
+        if cfg.MODEL.NECK.ADD_NECK:
+            self.addneck = True
+            self.neck = build_neck(cfg,self.backbone.out_channels)
+        else:
+            self.addneck =False
         self.heads = bulid_head(cfg, self.backbone.out_channels)
         self.test = cfg.DATASETS.TEST_SPLIT == 'test'
+        if cfg.MODEL.HEAD.USE_UNCERTAINTY:
+            self.mtl = make_multitask_wrapper(cfg)
+            self.use_uncertainty = True
+        else:
+            self.use_uncertainty = False
 
     def forward(self, images, targets=None):
         if self.training and targets is None:
@@ -33,9 +43,14 @@ class KeypointDetector(nn.Module):
         images = to_image_list(images)
 
         features = self.backbone(images.tensors)
-       
+        if self.addneck:
+            features = self.neck(features)
         if self.training:
             loss_dict, log_loss_dict = self.heads(features, targets)
+            #print(loss_dict)
+            if self.use_uncertainty:
+                loss_dict , uncertainty = self.mtl(loss_dict)
+            #print(loss_dict)
             return loss_dict, log_loss_dict
         else:
             result, eval_utils, visualize_preds = self.heads(features, targets, test=self.test)

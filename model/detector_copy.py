@@ -7,6 +7,7 @@ from .backbone import build_backbone
 from .head.detector_head import bulid_head
 from .head.detector_predictor import _predictor
 from .head.detector_predictor_copy import _predictor_test
+from .neck.detector_neck import build_neck
 from model.layers.uncert_wrapper import make_multitask_wrapper
 from .head.detector_loss import make_loss_evaluator
 from model.head.detector_infer import make_post_processor
@@ -24,6 +25,11 @@ class KeypointDetector_v2(nn.Module):
         self.backbone = build_backbone(cfg)
         # self.heads = _predictor(self.backbone.out_channels) for detector predictor copy
         self.test = cfg.DATASETS.TEST_SPLIT == 'test'
+        if cfg.MODEL.NECK.ADD_NECK:
+            self.addneck = True
+            self.neck = build_neck(cfg,self.backbone.out_channels)
+        else:
+            self.addneck =False
         if not self.test:
             self.heads =  _predictor(cfg,self.backbone.out_channels)#bulid_head(cfg, self.backbone.out_channels)#
         else:
@@ -34,6 +40,8 @@ class KeypointDetector_v2(nn.Module):
         
         #images = to_image_list(images)
         features = self.backbone(images)
+        if self.addneck:
+            features = self.neck(features)
         if targets is not None :
             output_cls, output_regs = self.heads(features,targets) 
         else:

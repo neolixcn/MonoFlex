@@ -81,27 +81,47 @@ class RandomHorizontallyFlip(object):
         return img, objs, calib,trans_affine_inv
 
 class RandomAffineCrop(object):
-    def __init__(self,width,height,shift,scale):
+    def __init__(self,width,height,shift,scale,centercrop):
         self.input_width, self.input_height = width,height
-       
+        self.centercrop = centercrop
         self.shift= shift
         self.scale= scale
 
     def __call__(self, img, objs, calib):
         #img.save("/home/lipengcheng/results/kitti_test/ori.png")
-    
-        center = np.array([i / 2 for i in img.size], dtype=np.float32)
-        size = np.array([img.size[0],img.size[1]], dtype=np.float32)
-        shift, scale = self.shift, self.scale
+        if self.centercrop == False:
+            #  for bottom crop #
+            size = np.array([img.size[0],self.input_height*img.size[0]/self.input_width], dtype=np.float32)
+            center = np.array([img.size[0]//2,img.size[1]-size[1]+size[1]//2], dtype=np.float32)
 
-        # center shift along y axis 
-        shift_ranges = np.arange(0, shift+0.1, 0.1)
-        
-        #center[0] += size[0] * random.choice(shift_ranges)
-        center[1] += size[1] * random.choice(shift_ranges)
+            if self.shift ==0:
+                shift=0
+            else:
+                shift = np.random.randint(low =0 ,high= (center[1]-size[1]//2)//2, size=1)
 
-        #scale_ranges = np.arange(1 - scale, 1 , 0.1)
-        #size *= random.choice(scale_ranges)
+            center[1] = center[1] - shift
+        else:
+       
+            # for center crop 
+            center = np.array([i / 2 for i in img.size], dtype=np.float32)
+            size = np.array([img.size[0],img.size[1]], dtype=np.float32)
+            shift, scale = self.shift, self.scale
+
+            # center shift along y axis 
+            # shift_ranges = np.arange(0, shift+0.1, 0.1)
+            # center[1] += size[1] * random.choice(shift_ranges)
+
+            if self.shift ==0:
+                shift=0
+            else:
+                shift = np.random.randint(low =0 ,high= (img.size[1]-self.input_height*2)//2, size=1)
+            center[1] += shift
+            #center[0] += size[0] * random.choice(shift_ranges)
+            
+
+            #scale_ranges = np.arange(1 - scale, 1 , 0.1)
+            #size *= random.choice(scale_ranges)
+       
 
         center_size = [center, size]
 

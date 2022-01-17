@@ -140,8 +140,8 @@ class KITTIDataset(Dataset):
 		self.augmentation = get_composed_augmentations() if (self.is_train and augment) else None
 		self.augmentation_val = get_composed_augmentations_val() if not self.is_train else None
 		# input and output shapes
-		self.input_width = cfg.INPUT.WIDTH_TRAIN
-		self.input_height = cfg.INPUT.HEIGHT_TRAIN
+		self.input_width = cfg.INPUT.WIDTH_TRAIN if self.split =='train' else cfg.INPUT.WIDTH_TEST 
+		self.input_height = cfg.INPUT.HEIGHT_TRAIN if self.split =='train' else cfg.INPUT.HEIGHT_TEST
 		self.down_ratio = cfg.MODEL.BACKBONE.DOWN_RATIO
 		self.output_width = self.input_width // cfg.MODEL.BACKBONE.DOWN_RATIO
 		self.output_height = self.input_height // cfg.MODEL.BACKBONE.DOWN_RATIO
@@ -325,6 +325,11 @@ class KITTIDataset(Dataset):
 		pad_size = np.array([pad_x, pad_y])
 
 		return Image.fromarray(ret_img.astype(np.uint8)), pad_size
+	
+	def setpedetrain3dsize(self,obj):
+
+
+		return obj
 
 	def __getitem__(self, idx):
 		
@@ -441,6 +446,13 @@ class KITTIDataset(Dataset):
 			cls = obj.type
 			if cls == 'Pedestrian'or cls == 'Car' or cls =='Cyclist':
 				cls_id = TYPE_ID_CONVERSION[cls]
+				if cls == 'Pedestrian':
+					obj.l, obj.w = 0.5,0.5
+				if cls == "Car":
+					if obj.h < 1.5 :
+						obj.h = 1.40
+					else:
+						obj.h = 0.92*obj.h 
 			else:
 				cls_id = -1
 			if cls_id < 0: continue
@@ -616,7 +628,7 @@ class KITTIDataset(Dataset):
 		#cv2.imwrite("/home/lipengcheng/results/kitti_test/{}_2d.jpg".format(str(original_idx)),ori_img)
 		
 		#show_heatmap(img, heat_map, index=original_idx)
-		#cv2.imwrite("/home/lipengcheng/results/kitti_test/{}.jpg".format(str(original_idx)),img3)
+		#cv2.imwrite("/root/data/lpc_model/neolix_test/tmp/{}.jpg".format(str(original_idx)),img3)
 
 		target = ParamsList(image_size=img.size, is_train=self.is_train) 
 		target.add_field("cls_ids", cls_ids)

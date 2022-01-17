@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
-
+from model_compress.eval_infer import get_label_annos_gen,vis_gt
 from engine.inference import inference
 from utils import comm
 from utils.metric_logger import MetricLogger
@@ -43,7 +43,8 @@ def do_eval(cfg, model, data_loaders_val, iteration):
 	dataset_name = cfg.DATASETS.TEST[0]
 
 	if cfg.OUTPUT_DIR:
-		output_folder = os.path.join(cfg.OUTPUT_DIR, dataset_name, "inference_{}".format(iteration))
+		#output_folder = os.path.join(cfg.OUTPUT_DIR, dataset_name, "inference_{}".format(iteration))
+		output_folder = os.path.join(cfg.OUTPUT_DIR, dataset_name, "inference_vis")
 		os.makedirs(output_folder, exist_ok=True)
 
 	evaluate_metric, result_str, dis_ious = inference(
@@ -57,6 +58,7 @@ def do_eval(cfg, model, data_loaders_val, iteration):
 	comm.synchronize()
 
 	return evaluate_metric, result_str, dis_ious
+
 
 def do_train(
 		cfg,
@@ -111,14 +113,14 @@ def do_train(
 		#weights = [3,1,1,1,1,2,1,1,1,1,1]
 		#losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
 		cur_epoch = iteration // arguments["iter_per_epoch"]
-		if cur_epoch >60:
-			weights = [3,3,1,1,3,3,1,1,1,1,1]
-			losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
-		elif cur_epoch >45:
-			weights = [3,1,1,1,1,1,1,1,1,1,1]
-			losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
-		else:
-			losses = sum(loss for loss in loss_dict.values())
+		# if cur_epoch >60:
+		# 	weights = [3,3,1,1,3,3,1,1,1,1,1]
+		# 	losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		# elif cur_epoch >45:
+		# 	weights = [3,1,1,1,1,1,1,1,1,1,1]
+		# 	losses = sum(loss*weights[id] for id,loss in enumerate(loss_dict.values()))
+		# else:
+		# 	losses = sum(loss for loss in loss_dict.values())
 		losses = sum(loss for loss in loss_dict.values())
 		
 		# reduce losses over all GPUs for logging purposes
@@ -180,8 +182,8 @@ def do_train(
 			cur_epoch = iteration // arguments["iter_per_epoch"]
 			
 			if comm.get_rank() == 0:
-				if cur_epoch >=60 and cur_epoch%2 ==0:
-					checkpointer.save("model_checkpoint_epoch_{}".format(str(cur_epoch)), **arguments)
+				# if cur_epoch >=60 and cur_epoch%2 ==0 and cur_epoch <=80 :
+				# 	checkpointer.save("model_checkpoint_epoch_{}".format(str(cur_epoch)), **arguments)
 				checkpointer.save("model_checkpoint", **arguments)
 			
 		if iteration == max_iter and comm.get_rank() == 0:
@@ -218,6 +220,12 @@ def do_train(
 				important_key_pedestrain = '{}_recall'.format('Pedestrian')
 				eval_mAP = (float(result_dict[important_key])+float(result_dict[important_key_cyclist]) +float(result_dict[important_key_pedestrain]))
 				if eval_mAP >= best_mAP:
+					if cur_epoch >=20:
+						predict_folder =os.path.join(cfg.OUTPUT_DIR, 'kitti_train/inference_vis', 'data')
+						output_folder = os.path.join(cfg.OUTPUT_DIR, 'kitti_train', "inference_vis")
+						gt_annos,dt_annos ,filename,labels,label_det = get_label_annos_gen(data_loaders_val.dataset.label_dir,predict_folder)
+						os.makedirs(os.path.join(output_folder,'vis_3d'), exist_ok=True)
+						vis_gt(label_det,data_loaders_val.dataset.image_dir,filename,output_folder,False)
 					# save best mAP and corresponding iterations
 					best_mAP = eval_mAP
 					best_iteration = iteration

@@ -1167,7 +1167,7 @@ def show_image_with_boxes(image, cls_ids, target_center, box2d, corners_2d, reg_
     #     plt.imshow(stacked_img)
     #     plt.show()
 
-    return stacked_img
+    return img3
 
 def show_edge_heatmap(img, edge_heatmap, interp_edge_indices, output_size):
     # output_size: w, h

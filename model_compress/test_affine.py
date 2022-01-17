@@ -3,6 +3,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import sys
 sys.path.append('/root/code/cloneServer/MonoFlex')
 import torch
+from torchstat import stat
+from torchsummary import summary
 import uuid
 #from model.backbone.HGFilters import HGFilter
 from torch import nn
@@ -105,13 +107,22 @@ def box3d_to_corners(locs, dims, roty):
 
 	return corners3d
 
-def preprocess(img,mean,std,calib_filename):
-    input_width = 1280 
-    input_height = 704 
+def preprocess(img,mean,std,calib_filename,input_width,input_height,bottom_crop = False):
+    
+    if bottom_crop :
+        size = np.array([img.shape[1],input_height*img.shape[1]/input_width], dtype=np.float32)
+        center = np.array([img.shape[1]//2,img.shape[0]-size[1]+size[1]//2], dtype=np.float32)
+    # shift = np.random.randint(low =0 ,high= (center[1]-size[1]//2)//2, size=1)
+
+    # center[1] = center[1] - shift
+    else:
+        center = np.array([img.shape[1]//2,img.shape[0]//2], dtype=np.float32)
+        size = np.array([img.shape[1],img.shape[0]], dtype=np.float32)
+    
     # center = np.array([i / 2 for i in img.size], dtype=np.float32)
     # size = np.array([img.size[0],img.size[1]], dtype=np.float32)
-    center = np.array([img.shape[1]//2,img.shape[0]//2], dtype=np.float32)
-    size = np.array([img.shape[1],img.shape[0]], dtype=np.float32)
+    # center = np.array([img.shape[1]//2,img.shape[0]//2], dtype=np.float32)
+    # size = np.array([img.shape[1],img.shape[0]], dtype=np.float32)
 
     """
     resize, horizontal flip, and affine augmentation are performed here.
@@ -130,14 +141,12 @@ def preprocess(img,mean,std,calib_filename):
     #     resample=Image.BILINEAR,
     # )
     
-    # img =cv2.warpAffine(np.array(img), affine_opencv, (input_width, input_height), cv2.INTER_LINEAR)
-    # cv2.imwrite("/home/lipengcheng/MonoFlex-llt/test/output_file/save_affine.png",imgaffine)
-    # np.save("/home/lipengcheng/MonoFlex-llt/test/output_file/save_affine.npy",imgaffine)
-    img_t = np.array(img)
-    img_t = cv2.resize(img_t,(int(input_width),int(img.shape[0]*input_width/img.shape[1])),cv2.INTER_LINEAR)
-    img = img_t[img_t.shape[0]//2-input_height//2 :img_t.shape[0]//2+input_height//2,:,:]
-    # np.save("/home/lipengcheng/MonoFlex-llt/test/output_file/resize_centercrop.npy",img_centercrop)
-    # cv2.imwrite("/home/lipengcheng/MonoFlex-llt/test/output_file/crop.png",img_centercrop)
+    img =cv2.warpAffine(np.array(img), affine_opencv, (input_width, input_height), cv2.INTER_LINEAR)
+    
+    # img_t = np.array(img)
+    # img_t = cv2.resize(img_t,(int(input_width),int(img.shape[0]*input_width/img.shape[1])),cv2.INTER_LINEAR)
+    # img = img_t[img_t.shape[0]//2-input_height//2 :img_t.shape[0]//2+input_height//2,:,:]
+ 
 
     # img =np.zeros([input_height,input_width,3])
     # img[max(0,input_height//2 -img_t.shape[0]//2): min(input_height//2 + img_t.shape[0]//2,input_height),input_width//2 -img_t.shape[1]//2:input_width//2 +img_t.shape[1]//2, :] =img_t[max(0,img_t.shape[0]//2-input_height//2):min(img_t.shape[0]//2+input_height//2,img_t.shape[0]),:,:]
@@ -274,17 +283,16 @@ def read_picture():
 
 
 
-def write_video():
-    path, fps, size, file_list = read_picture()
+def write_video(savefolder, fps, size, file_list):
+    #path, fps, size, file_list = read_picture()
     # AVI格式编码输出 XVID
     four_cc = cv2.VideoWriter_fourcc(*'XVID')
-    save_path = path + '\\' + '%s.avi' % str(uuid.uuid1())
+    save_path = savefolder + '/' + '%s.avi' % str(uuid.uuid1())
     video_writer = cv2.VideoWriter(save_path, four_cc, float(fps), size)
     # 视频保存在当前目录下
     for item in file_list:
         if item.endswith('.jpg') or item.endswith('.png'):
             # 找到路径中所有后缀名为.png的文件，可以更换为.jpg或其它
-            item = path  + item
             img = cv2.imread(item)
             re_pics = cv2.resize(img, size, interpolation=cv2.INTER_CUBIC)  # 定尺寸
             if len(re_pics):
@@ -302,6 +310,7 @@ if __name__ == "__main__":
     cfg = setup(args)
     cfg.MODEL.BACKBONE.CONV_BODY  = 'dla34'#'hg'#
     cfg.DATASETS.TEST_SPLIT = 'test'
+    cfg.MODEL.NECK.ADD_NECK =False
     cfg.MODEL.INPLACE_ABN =False
     cfg.MODEL.HEAD.ENABLE_EDGE_FUSION = False 
     id = 12
@@ -315,18 +324,21 @@ if __name__ == "__main__":
     #ckpt = "/home/lipengcheng/code/fuxian/MonoFlex/output/toy_experiments/NoAbnNoDcnData7000/model_moderate_best_soft_epoch40.pth"
     #ckpt ='/home/lipengcheng/MonoFlex-llt/test/new_basic_7000.pth'
     #ckpt = '/data/lpc_model/nuscense_project2d/model_checkpoint_epoch_80.pth' # monoflex 12  
-    ckpt = '/root/data/lpc_model/monoflex_16/model_checkpoint_epoch_70.pth' #目前最好
-    #ckpt = '/data/lpc_model/monoflex_15/model_moderate_best_soft.pth'
+    #ckpt = '/root/data/lpc_model/monoflex_16/model_checkpoint_epoch_70.pth' #目前最好
+    #ckpt = '/root/data/lpc_model/monoflex_18/model_checkpoint_epoch_70.pth' #19最好
+    ckpt = '/root/data/lpc_model/monoflex_21/model_moderate_best_soft.pth' #model_moderate_best_soft.pth
+    #ckpt = '/data/lpc_model/monoflex_16/model_moderate_best_soft.pth'
     model_param = torch.load(ckpt)
     _ = checkpointer.load(ckpt, use_latest=args.ckpt is None)
     
     #torch.save(model.state_dict(), "/home/lipengcheng/MonoFlex-llt/test/id_8_hg_train_verygood.pth")
-    
+    input_width = 1280 
+    input_height = 384 
     model.eval()
 
     classes = ["Car", "Pedestrian", "Cyclist"]
 
-    test = 'image'
+    test = 'onnx'
     test_group = True
     compare_gt_det =False 
     lianghua = False 
@@ -348,7 +360,8 @@ if __name__ == "__main__":
                 img = cv2.imread(src_dir+'image_2/'+image_name)
                 pixel_mean = torch.from_numpy(np.array([0.485, 0.456, 0.406]))
                 pixel_std = torch.from_numpy(np.array([0.229, 0.224, 0.225]))
-                img ,img_numpy, calib= preprocess(img,pixel_mean,pixel_std,calibrationPath)
+                
+                img ,img_numpy, calib,trans_affine_inv = preprocess(img,pixel_mean,pixel_std,calibrationPath,input_width,input_height)
                 np.save(save_dir + base_name+'.npy',img.cpu().data.numpy())
                 image_files.append(image_name)
 
@@ -366,10 +379,14 @@ if __name__ == "__main__":
                 save_dir = "/root/data/lpc_model/neolix_test/"
                 s = 0
                 e = len(imgs_path_list)-1 #500#
+                subfolderimg = '/img_train{}*{}/'.format(input_width,input_height)
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
-                    os.makedirs(save_dir+'img')
-                    os.makedirs(save_dir+'eval_txt')
+                if not os.path.exists(save_dir+subfolderimg):
+                    os.makedirs(save_dir+subfolderimg)
+                subfoldertxt = '/txt_train{}*{}/'.format(input_width,input_height)
+                if not os.path.exists(save_dir+subfoldertxt):
+                    os.makedirs(save_dir+subfoldertxt)
             else:
                 #'nuscenes'
                 image_files = []
@@ -400,8 +417,8 @@ if __name__ == "__main__":
                     os.makedirs(save_dir)
                     os.makedirs(save_dir+'img')
                     os.makedirs(save_dir+'eval_txt')
-
-            pp = postprcess(cfg).cuda()
+            saveimgpath =[]
+            pp = postprcess(cfg,input_width,input_height).cuda()
             with torch.no_grad():
                 for k,impath in enumerate(imgs_path_list[s:e]):
                     
@@ -414,7 +431,7 @@ if __name__ == "__main__":
                     label_filename_gt = "/root/data/neolix_dataset/test_dataset/camera_object_detection/label_2/"+impath.split('/')[-1].replace('png','txt')
                     if os.path.exists(label_filename_gt):
                         label = read_label(label_filename_gt)
-                    #fh = open(os.path.join(save_dir+'eval_txt',impath.split('/')[-1].replace('png','txt')) ,'w')
+                    fh = open(os.path.join(save_dir+subfoldertxt,impath.split('/')[-1].replace('png','txt')) ,'w')
                     #imgpath ='/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/10_7_record.00000_1622538455.344359400.png'
                     img = cv2.imread(impath)
                     #cv2.imwrite("/home/lipengcheng/results/"+ 'ori.png' ,img)
@@ -427,10 +444,10 @@ if __name__ == "__main__":
 
                     pixel_std = torch.from_numpy(np.array([0.229, 0.224, 0.225]))
 
-                    img ,img_numpy, calib ,trans_affine_inv = preprocess(img,pixel_mean,pixel_std,calibrationPath)
+                    img ,img_numpy, calib ,trans_affine_inv = preprocess(img,pixel_mean,pixel_std,calibrationPath,input_width,input_height)
 
                     img =img.unsqueeze(0).to('cuda')    
-                    cv2.imwrite(save_dir+ 'crop.png' ,img_numpy)
+                    #cv2.imwrite(save_dir+ 'crop.png' ,img_numpy)
                     #cv2.imwrite("/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/image_yz/"+name[:-4]+ '.png' ,img_numpy)
                     # copyfile('/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/0.txt','/nfs/neolix_data1/OpenSource_dataset/lidar_object_detection/Kitti/kitti/testing/calib/'+name[:-4]+ '.txt')
 
@@ -446,7 +463,8 @@ if __name__ == "__main__":
                     clses,alphas,rotys,box2d, dims, score,locs = pp(output_cls,  output_regs, calib)
                     if clses is None:
                         #cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
-                        cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img_vis)
+                        cv2.imwrite(save_dir+subfolderimg+name[:-4]+ '_3d_3.jpg' ,img_vis)
+                        saveimgpath.append(save_dir+subfolderimg+name[:-4]+ '_3d_3.jpg')
                         continue
                     clses,alphas,rotys,box2d, dims, score,locs =clses.data.cpu().numpy(),alphas.data.cpu().numpy(),rotys.data.cpu().numpy(),box2d.data.cpu().numpy(), dims.data.cpu().numpy(), score.data.cpu().numpy(),locs.data.cpu().numpy()
                     box2d = update2Dbox2OriIm(box2d,trans_affine_inv,w,h)
@@ -460,10 +478,10 @@ if __name__ == "__main__":
                             img3 = Visualizer(img3.copy())
                             img3.draw_text(text='{},{}, {}, {}, {:.3f},{:.2f},{:.2f},{:.2f}'.format("id :",i, ID_TYPE_CONVERSION[clses[i]],int(clses[i]), score[i], dims[i,0],dims[i,1],dims[i,2]), position=(int(box2d[i, 0]), int(box2d[i, 1])))
                             img3 = img3.output.get_image().astype(np.uint8)
-                            #fh.write(classes[int(clses[i])]+' '+ str(0)+' '+str(0)+ ' '+str(alphas[i])+ ' '+str(int(box2d[i,0]))+ ' '+str(int(box2d[i,1]))+' '+ str(int(box2d[i,2]))+ ' '+str(int(box2d[i,3]))+ ' '+str(dims[i,0])+ ' '+str(dims[i,1])+' '+ str(dims[i,2])+ ' '+str(locs[i,0])+ ' '+str(locs[i,1])+ ' '+str(locs[i,2])+ ' '+str(rotys[i])+'\n')
-                    cv2.imwrite(save_dir+'img/'+name[:-4]+ '_3d_3.jpg' ,img3)
-                    
-                    #fh.close()
+                            fh.write(classes[int(clses[i])]+' '+ str(0)+' '+str(0)+ ' '+str(alphas[i])+ ' '+str(int(box2d[i,0]))+ ' '+str(int(box2d[i,1]))+' '+ str(int(box2d[i,2]))+ ' '+str(int(box2d[i,3]))+ ' '+str(dims[i,0])+ ' '+str(dims[i,1])+' '+ str(dims[i,2])+ ' '+str(locs[i,0])+ ' '+str(locs[i,1])+ ' '+str(locs[i,2])+ ' '+str(rotys[i])+'\n')
+                    cv2.imwrite(save_dir+subfolderimg+name[:-4]+ '_3d_3.jpg' ,img3)
+                    saveimgpath.append(save_dir+subfolderimg+name[:-4]+ '_3d_3.jpg')
+                    fh.close()
                     # for bb in box2d:
                     #     cv2.rectangle(img_vis, (int(bb[0]),int(bb[1])), (int(bb[2]),int(bb[3])), (0,0,255), thickness = 2)
 
@@ -479,6 +497,7 @@ if __name__ == "__main__":
                     # cv2.imwrite(save_dir+name[:-4]+ '_2d.jpg' ,img2)
                     print(name)
                     #cv2.imwrite('/home/lipengcheng/MonoFlex-llt/test/output_file/7_draw_2d_box'+"_0{}.jpg".format(str(k)),img2)
+        write_video(save_dir, 5, (960,540), saveimgpath)
         if compare_gt_det :
             #src_dir = "/nfs/neolix_data1/neolix_dataset/all_dataset/scenes/China/beijing/yizhuang/original_133-182/d4e7a2b5b87e4b3386d20da23cc95def_front_3mm_png/"
             src_dir = "/nfs/neolix_data1//neolix_dataset/test_dataset/camera_object_detection/image_2/"
@@ -636,15 +655,19 @@ if __name__ == "__main__":
                     
                     print(box2d.shape[0])
     if test =='onnx':
+        #summary(model, input_size=(3, 384, 1280), batch_size=-1)
         model.to('cpu')
+        # stat(model, (3, 384, 1280))
+        # stat(model, (3, 384, 960))
+        # stat(model, (3, 416, 960))
 
-        img = torch.rand((1, 3, 384, 1280))
+        img = torch.rand((1, 3, 384, 960))
 
         #temp = torch.rand(1, 3, 384, 1280)
 
         output_cls,  output_regs, features = model(img)
 
-        torch.onnx.export(model, img, "/home/lipengcheng/MonoFlex-llt/test/monoflex_13.onnx", input_names = ['input'],output_names =['clses','regs','feature'], verbose=True) 
+        torch.onnx.export(model, img, "/root/data/lpc_model/monoflex_24/monoflex_24.onnx", input_names = ['input'],output_names =['clses','regs','feature'], verbose=True) 
 
     print(1)
 

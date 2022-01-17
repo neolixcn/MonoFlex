@@ -1,3 +1,5 @@
+import sys
+sys.path.append('/root/code/cloneServer/MonoFlex')
 import data.datasets.evaluation.kitti_object_eval_python.kitti_common as kitti
 from data.datasets.evaluation.kitti_object_eval_python.eval import get_official_eval_result, get_coco_eval_result,get_neolix_eval_result
 import os ,cv2 
@@ -60,8 +62,8 @@ def nms(x, nms_th):
     saveid= np.where(target==1.0)
     return saveid[0]
 
-def get_label_annos_gen(label_folder,det_folder,imageset_txt_path= []):
-    only_genGT =False
+def get_label_annos_gen(label_folder,det_folder,imageset_txt_path= [],only_genGT =False):
+    
     annos_det = []
     annos_gt = []
     label_filenames = os.listdir(label_folder)
@@ -142,13 +144,13 @@ def vis_gt(labels,imgfolder,filename,save_dir,vis_neolix= True):
     for j,objs in enumerate(labels):
         shotname, extension = os.path.split( filename[j])
         filename[j] = extension
-        imgpath = imgfolder + filename[j].replace('txt','png')
+        imgpath = os.path.join(imgfolder , filename[j].replace('txt','png'))
         if not os.path.exists(imgpath):
             continue
         if vis_neolix:
             calibrationPath = "/home/lipengcheng/data/neolix/calib/front_3mm_intrinsics.yaml"
         else:
-            calibrationPath = imgfolder.replace('image_2','calib') + filename[j]
+            calibrationPath = os.path.join(imgfolder.replace('image_2','calib') , filename[j])
         calib = Calibration(calibrationPath)
         img = cv2.imread(imgpath)
         img4 = img.copy()
@@ -212,10 +214,10 @@ def vis_gt(labels,imgfolder,filename,save_dir,vis_neolix= True):
         img4 = cv2.resize(img4, (img3.shape[0], img3.shape[0]))
         stack_img = np.concatenate([img3, img4], axis=1)
         
-        cv2.imwrite(save_dir+'/vis_3d/'+filename[j].replace('txt','.jpg') ,stack_img)
+        cv2.imwrite(save_dir+'/vis_3d/'+filename[j].replace('txt','jpg') ,stack_img)
         # fh = open(save_dir+'/vis_3d/'+filename[j] ,'w')
         # fh.close()
-        print(save_dir+'/vis_3d/'+filename[j].replace('txt','.jpg'))
+        #print(save_dir+'/vis_3d/'+filename[j].replace('txt','.jpg'))
 
 def vis_bev(labels,label_det,imgfolder,filename,save_dir):
     if not os.path.exists(save_dir+'/vis_3d/'):
@@ -293,8 +295,9 @@ gt_annos,dt_annos =[],[]
 if vis_noelix :
     
     #det_path = "/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/eval/eval_python"
-    det_path = "/home/lipengcheng/results/yizhuang/eval3/neolix_1/eval_txt/"
-    gt_path = "/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/label_2/"
+    #det_path = "/root/data/lpc_model/neolix_test/"+'/txt_train{}*{}/'.format(960,512)
+    det_path = "/root/data/lpc_model/monoflex_26/kitti_train/inference_3192/data"
+    gt_path = "/root/data/neolix_dataset/test_dataset/camera_object_detection/label_2/"
     gt_annos,dt_annos ,filename,labels,label_det = get_label_annos_gen(gt_path,det_path)
 
     imgfolder ='/nfs/neolix_data1/neolix_dataset/test_dataset/camera_object_detection/image_2/'
@@ -302,7 +305,7 @@ if vis_noelix :
     if not os.path.exists(save_dir+'vis_3d'):
         os.makedirs(save_dir+'vis_3d')
     #vis_bev(labels,label_det,imgfolder,filename,save_dir)
-    #vis_gt(labels,imgfolder,filename,save_dir,False)
+    vis_gt(labels,imgfolder,filename,save_dir,False)
 
 if vis_kitti :
     det_path = "/home/lipengcheng/results/yizhuang/eval2/kitti/eval_txt/"
@@ -363,9 +366,9 @@ if vis_nusence :
     
     #print (i)
 
-result_car, ret_dict_car = get_neolix_eval_result(gt_annos, dt_annos, [0,1,2])
+#result_car, ret_dict_car = get_neolix_eval_result(gt_annos, dt_annos, [0,1,2])
 # result_ped, ret_dict_ped = get_neolix_eval_result(gt_annos, dt_annos, 1)
 # result_cyc, ret_dict_cyc = get_neolix_eval_result(gt_annos, dt_annos, 2)
 # print(result_cyc)
 # print(result_ped)
-print(result_car)
+#print(result_car)

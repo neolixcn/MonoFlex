@@ -11,7 +11,7 @@ from utils.timer import Timer, get_time_str
 from collections import defaultdict
 from data.datasets.evaluation import evaluate_python
 from data.datasets.evaluation import generate_kitti_3d_detection
-
+from model_compress.eval_infer import get_label_annos_gen,vis_gt
 from .visualize_infer import show_image_with_boxes, show_image_with_boxes_test
 
 def affine_transform(point, matrix):
@@ -74,6 +74,7 @@ def compute_on_dataset(model, data_loader, device, predict_folder, timer=None, v
             # generate txt files for predicted objects
             predict_txt = image_ids[0] + '.txt'
             predict_txt = os.path.join(predict_folder, predict_txt)
+            
             generate_kitti_3d_detection(output, predict_txt)
 
     # disentangling IoU
@@ -91,7 +92,7 @@ def inference(
         device="cuda",
         output_folder=None,
         metrics=['R40'],
-        vis=True,
+        vis=False,
         eval_score_iou=False,
 ):
     device = torch.device(device)
@@ -140,7 +141,8 @@ def inference(
                                         label_split_file=dataset.imageset_txt,
                                         current_class=dataset.classes,
                                         metric=metric)
-
+        
+        
         logger.info('metric = {}'.format(metric))
         logger.info('\n' + result)
 
